@@ -13,8 +13,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Requires:       python3
 Requires:	python36-numpy
 Requires:	python36-dateutil
-Requires:	eccodes-python
-Requires:	PyYAML
+Requires:	python36-PyYAML
 Provides:	grid-check.py
 
 AutoReqProv: no
