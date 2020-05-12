@@ -9,7 +9,7 @@ grid-check is a simple tool to check the contents of gridded (meteorological) fi
 * Initial support for two different test types
   * Envelope test
   * Variance tests
-* Support for grib data type
+* Support for grib2 data type
 
 # Configuration
 
@@ -18,9 +18,18 @@ Configuration is done through yaml files.
 Example:
 
 ```
-Tests:
-  - Name: check t2m envelope
-    Sample: 10%
+ForecastTypes:
+  - Grib2MetaData:
+    - Key: typeOfProcessedData
+      Value: 4
+    - Key: perturbationNumber
+      Value: 1-50
+LeadTimes:
+  - "Start" : "00:00:00"
+    "Stop"  : "12:00:00"
+    "Step"  : "01:00:00"
+Parameters:
+  - Name: Temperature
     Grib2MetaData:
       - Key: discipline
         Value: 0
@@ -28,37 +37,94 @@ Tests:
         Value: 0
       - Key: parameterNumber
         Value: 0
+  - Name: U
+    Grib2MetaData:
+      - Key: discipline
+        Value: 0
+      - Key: parameterCategory
+        Value: 2
+      - Key: parameterNumber
+        Value: 2
       - Key: typeOfFirstFixedSurface
-        Value: 105
-      - Key: level
-        Value: 130
+        Value: 103
+  - Name: V
+    Grib2MetaData:
+      - Key: discipline
+        Value: 0
+      - Key: parameterCategory
+        Value: 2
+      - Key: parameterNumber
+        Value: 3
+      - Key: typeOfFirstFixedSurface
+        Value: 103
+Tests:
+  - Name: check t2m envelope
+    Sample: 10%
+    Parameters:
+      - Names:
+        - Temperature
     Test:
       Type: ENVELOPE
       MinAllowed: 220
       MaxAllowed: 325
   - Name: check t variance
     Sample: 15%
-    Grib2MetaData:
-      - Key: discipline
-        Value: 0
-      - Key: parameterCategory
-        Value: 0
-      - Key: parameterNumber
-        Value: 0
-      - Key: typeOfFirstFixedSurface
-        Value: 105
+    Parameters:
+      Grib2MetaData:
+        - Key: discipline
+          Value: 0
+        - Key: parameterCategory
+          Value: 0
+        - Key: parameterNumber
+          Value: 0
+        - Key: typeOfFirstFixedSurface
+          Value: 105
     Test:
       Type: VARIANCE
       MinVariance: 50
+  - Name: check ff envelope
+    Sample: 20%
+    Parameters:
+      Names:
+        - U
+        - V
+      Grib2MetaData:
+        - Key: level
+          Value: 10
+    Test:
+      Preprocess: np.hypot(U, V)
+      Type: ENVELOPE
+      MinAllowed: 0
+      MaxAllowed: 25
 ```
 
-File contains two distinct tests for the data.
+Top level keys are:
 
-First test tests that the data values lie between 220 and 325. It takes a sample of the data that equals to 10% of grid size.
+* ForecastTypes
 
-Second tests tests that the data variance is at least 50. Variance here is the average squared difference from the mean value. Only lower bound for variance is given.
+A mandatory key that defines for which forecast types (deterministic forecast, ensemble member etc) the check is being made.
 
-Both tests read only specific messages from a grib file that possibly contains many messages.
+* LeadTimes
+
+A mandatory key that defines for which leadtimes the check is being made.
+
+* Parameters
+
+An optional key that can be used to predefine variables that can later be used in 'Tests' sections
+
+* Tests
+
+The configuration of the actual tests.
+
+The example file contains three distinct tests for the data.
+
+First test tests that the data values lie between 220 and 325. It takes a sample of the data that equals to 10% of grid size. It uses a predefined parameter 'Temperature'.
+
+Second test tests that the data variance is at least 50. Variance here is the average squared difference from the mean value. Only lower bound for variance is given. This
+test is not using a predefined parameter but specifying grib2 keys "inline".
+
+Third test tests that the data values lie between 0 and 25. It uses two predefined parameter U and V, and combines them into one field using numpy function "np.hypot".
+The parameter definition is amended by injecting level value '10'.
 
 Input files are given as command line arguments.
 
