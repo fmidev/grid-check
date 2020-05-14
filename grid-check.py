@@ -7,18 +7,10 @@ import os
 import argparse
 import yaml
 import numpy as np
-import pprint
 import logging
+import copy
 from random import randrange
 from datetime import datetime, timedelta
-
-
-class EnvelopeTestException(Exception):
-    pass
-
-
-class GribMessageNotFoundException(Exception):
-    pass
 
 
 class TestNotImplementedException(Exception):
@@ -26,7 +18,17 @@ class TestNotImplementedException(Exception):
 
 
 def get_index_keys():
-    return ['typeOfProcessedData', 'typeOfFirstFixedSurface', 'level', 'discipline', 'parameterCategory', 'parameterNumber', 'forecastTime', 'perturbationNumber']
+    return [
+        'typeOfProcessedData',
+        'typeOfFirstFixedSurface',
+        'level',
+        'discipline',
+        'parameterCategory',
+        'parameterNumber',
+        'typeOfStatisticalProcessing',
+        'endStep',
+        'perturbationNumber'
+    ]
 
 
 def get_default_value(keyname):
@@ -70,7 +72,11 @@ def index_grib_files(grib_files):
 
                 ref = index
                 for k in index_keys:
-                    val = ecc.codes_get_long(gid, k)
+                    try:
+                        val = ecc.codes_get_long(gid, k)
+                    except gribapi.errors.KeyValueNotFoundError as e:
+                        val = None
+
                     if val not in ref:
                         ref[val] = {}
                         ref = ref[val]
@@ -83,12 +89,14 @@ def index_grib_files(grib_files):
                 ref['message_no'] = message_no
                 ref['length'] = length
                 ref['offset'] = offset
-    #            print(kv)
+#                print(ref)
 
                 message_no += 1
                 offset += length
                 cnt += 1
+
     logging.info(f"Indexed {cnt} messages from {len(grib_files[0])} file(s)")
+
     return index
 
 
@@ -121,7 +129,9 @@ def read_sample(grid, sample_size):
     return np.random.choice(grid, sample_size)
 
 
-def timedelta_from_string(string):
+def string_to_timedelta(string):
+    if string[-1] == 'h':
+        return timedelta(hours=int(string[:-1]))
     t = string.split(":")
     return timedelta(hours=int(t[0]), minutes=int(t[1]), seconds=int(t[2]))
 
@@ -129,7 +139,7 @@ def timedelta_from_string(string):
 def timedelta_to_grib2metadata(td):
     d = {
         'Grib2MetaData': [{
-            'Key': 'forecastTime',
+            'Key': 'endStep',
             'Value': int(td.total_seconds() / 3600)
         }]
     }
@@ -140,9 +150,9 @@ def timedelta_to_grib2metadata(td):
 def generate_leadtimes(leadtime_configs):
     leadtimes = []
     for cfg in leadtime_configs:
-        current = timedelta_from_string(cfg['Start'])
-        stop = timedelta_from_string(cfg['Stop'])
-        step = timedelta_from_string(cfg['Step'])
+        current = string_to_timedelta(cfg['Start'])
+        stop = string_to_timedelta(cfg['Stop'])
+        step = string_to_timedelta(cfg['Step'])
 
         while current <= stop:
             leadtimes.append(current)
@@ -161,7 +171,6 @@ def format_metadata_to_string(metadata):
 
 
 def read_data(grid):
-    #    print(grid)
     with open(grid['file_name'], "rb") as fp:
         fp.seek(grid['offset'], 0)
         buff = fp.read(grid['length'])
@@ -177,10 +186,11 @@ def read_data(grid):
 
 def read_grids(index, parameters):
     grids = {}
-
     for param in parameters:
         grid = read_grib_message(index, parameters[param]['Grib2MetaData'])
         if grid is not None:
+            logging.debug(
+                f"Read {format_metadata_to_string(parameters[param]['Grib2MetaData'])}")
             grids[param] = read_data(grid)
 
     diff = list(set(parameters) - set(grids.keys()))
@@ -200,26 +210,38 @@ def preprocess(grids, test):
     try:
         prep = test['Preprocess']
         locals().update(grids)
+        return eval(prep)
 
-        return eval(prep)  # np.hypot(grids['U'], grids['V'])
+    except NameError as e:
+        logging.fatal(f"Invalid preprocessing function: {prep}: {e}")
+        sys.exit(1)
 
     except KeyError as e:
         if len(grids.keys()) > 1:
             logging.fatal(
-                "Don't know how to merge multiple grids without preprocssing directive")
+                "Don't know how to merge multiple grids without preprocessing directive")
             sys.exit(1)
         return list(grids.values())[0]
 
 
 def execute_envelope_test(test, forecast_types, leadtimes, parameters, files):
-    ret = []
+    ret = {
+        'success': 0,
+        'fail': 0,
+        'skip': 0,
+        'summary': []
+    }
 
     for ft in forecast_types:
+        lparameters = inject(copy.deepcopy(parameters), ft)
         for lt in leadtimes:
-            sample = read_sample(preprocess(read_grids(files, inject(inject(
-                parameters, ft), timedelta_to_grib2metadata(lt))), test['Test']), test['Sample'])
+            lparameters = inject(lparameters, timedelta_to_grib2metadata(lt))
+
+            sample = read_sample(preprocess(read_grids(
+                files, lparameters), test['Test']), test['Sample'])
 
             if sample is None:
+                ret['skip'] += 1
                 continue
 
             smin = np.amin(sample)
@@ -235,24 +257,39 @@ def execute_envelope_test(test, forecast_types, leadtimes, parameters, files):
                 retval = 1
                 word = "not "
 
-            ret.append(
+            ret['summary'].append(
                 {
                     "return_value": retval,
                     "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Min or max [{smin:.2f} {smax:.2f}] is {word}inside allowed range [{emin:.2f} {emax:.2f}], sample={sample.size}"
                 })
+
+            if retval == 0:
+                ret['success'] += 1
+            elif retval == 1:
+                ret['fail'] += 1
 
     return ret
 
 
 def execute_variance_test(test, forecast_types, leadtimes, parameters, files):
 
-    ret = []
+    ret = {
+        'success': 0,
+        'fail': 0,
+        'skip': 0,
+        'summary': []
+    }
+
     for ft in forecast_types:
+        lparameters = inject(copy.deepcopy(parameters), ft)
         for lt in leadtimes:
-            sample = read_sample(preprocess(read_grids(files, inject(inject(
-                parameters, ft), timedelta_to_grib2metadata(lt))), test['Test']), test['Sample'])
+            lparameters = inject(lparameters, timedelta_to_grib2metadata(lt))
+
+            sample = read_sample(preprocess(read_grids(
+                files, lparameters), test['Test']), test['Sample'])
 
             if sample is None:
+                ret['skip'] += 1
                 continue
 
             svar = np.var(sample)
@@ -275,11 +312,16 @@ def execute_variance_test(test, forecast_types, leadtimes, parameters, files):
                 retval = 1
                 word = "not "
 
-            ret.append(
+            ret['summary'].append(
                 {
                     "return_value": retval,
                     "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Variance {svar:.2f} is {word}inside given limits [{minvar} {maxvar}], sample={sample.size}"
                 })
+
+            if retval == 0:
+                ret['success'] += 1
+            elif retval == 1:
+                ret['fail'] += 1
 
     return ret
 
@@ -287,11 +329,22 @@ def execute_variance_test(test, forecast_types, leadtimes, parameters, files):
 def execute_test(test, forecast_types, leadtimes, parameters, files):
 
     ty = test['Test']['Type']
-    logging.info(f"Executing {ty} test '{test['Name']}'")
 
     if ty == "ENVELOPE":
+        mina = test['Test']['MinAllowed'] if 'MinAllowed' in test['Test'] else None
+        maxa = test['Test']['MaxAllowed'] if 'MaxAllowed' in test['Test'] else None
+
+        logging.info(
+            f"Executing {ty} test '{test['Name']}', allowed range: [{mina}, {maxa}]")
+
         return execute_envelope_test(test, forecast_types, leadtimes, parameters, files)
     elif ty == "VARIANCE":
+        minv = test['Test']['MinVariance'] if 'MinVariance' in test['Test'] else None
+        maxv = test['Test']['MaxVariance'] if 'MaxVariance' in test['Test'] else None
+
+        logging.info(
+            f"Executing {ty} test '{test['Name']}', allowed variance: [{minv}, {maxv}]")
+
         return execute_variance_test(test, forecast_types, leadtimes, parameters, files)
     else:
         raise TestNotImplementedException(
@@ -299,15 +352,23 @@ def execute_test(test, forecast_types, leadtimes, parameters, files):
 
 
 def inject(conditions, injected):
+
     if 'Grib2MetaData' in injected:
         injected = injected['Grib2MetaData']
 
-    for inj in injected:  # ['Grib2MetaData']:
+    for inj in injected:
         for k, v in conditions.items():
             g2meta = v['Grib2MetaData']
             for item in g2meta:
                 if inj['Key'] == item['Key']:
-                    item['Value'] = inj['Value']
+                    # if injecting time, check if parameter is lagged
+                    if inj['Key'] == 'endStep' and 'Lag' in v:
+                        lagged = int((timedelta(
+                            hours=inj['Value']) - string_to_timedelta(v['Lag'])).total_seconds() / 3600)
+#                        logging.debug(f"Lagging time {inj['Value']} to {lagged}")
+                        item['Value'] = lagged
+                    else:
+                        item['Value'] = inj['Value']
                     found = True
                     break
             if not found:
@@ -332,7 +393,7 @@ def tie(req_parameters, parameters):
             ret[name] = parameters[name]
 
     except KeyError as e:
-        logging.fatal(f"Required parameter '{p}' is not defined")
+        logging.fatal(f"Required parameter is not defined: {e}")
         sys.exit(1)
 
     try:
@@ -380,33 +441,34 @@ def tie(req_parameters, parameters):
 
 
 def check(config, dims, files):
-    successful_tests = 0
-    failed_tests = 0
-    skipped_tests = 0
+    success = 0
+    fail = 0
+    skip = 0
 
     return_code = 0
     for test in config['Tests']:
         summaries = execute_test(test, dims['forecast_types'], dims['leadtimes'], tie(
             test['Parameters'], dims['parameters']), files)
 
-        if len(summaries) == 0:
-            logging.info("No grids checked")
-            skipped_tests += 1
+        success += summaries['success']
+        fail += summaries['fail']
+        skip += summaries['skip']
 
-        for summary in summaries:
+        if len(summaries['summary']) == 0:
+            logging.info("No grids checked")
+
+        for summary in summaries['summary']:
             retval = int(summary['return_value'])
             if retval > return_code:
                 return_code = retval
 
             if retval == 0:
-                #                logging.info(summary['message'])
-                successful_tests += 1
+                logging.debug(summary['message'])
             else:
                 logging.error(summary['message'])
-                failed_tests += 1
 
     logging.info(
-        f"Total Summary: successful tests: {successful_tests}, failed: {failed_tests}, skipped: {skipped_tests}")
+        f"Total Summary: successful tests: {success}, failed: {fail}, skipped: {skip}")
 
     sys.exit(return_code)
 
@@ -417,6 +479,7 @@ def parse_forecast_types(config):
         for ft in config['ForecastTypes']:
             rng = None
             ty = None
+
             for item in ft['Grib2MetaData']:
                 if item['Key'] == 'perturbationNumber':
                     if '-' in str(item['Value']):
@@ -426,6 +489,7 @@ def parse_forecast_types(config):
                         rng = [int(item['Value'])]
                 if item['Key'] == 'typeOfProcessedData':
                     ty = item['Value']
+                    rng = [None]
 
             for x in rng:
                 d = {
@@ -453,8 +517,11 @@ def parse_parameters(config):
     try:
         paramdefs = config['Parameters']
         for pdef in paramdefs:
+            if 'Parent' in pdef:
+                pdef['Grib2MetaData'] = copy.deepcopy(
+                    parameters[pdef['Parent']]['Grib2MetaData'])
+                pdef.pop('Parent', None)
             parameters[pdef['Name']] = pdef
-
     except KeyError as e:
         return None
 
@@ -477,11 +544,22 @@ def parse_command_line():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--configuration", type=str,
                         help="configuration file for checker", required=True)
-    parser.add_argument("--log-level", type=str,
-                        help="log level 1-5", default=3)
+    parser.add_argument("-d", "--log-level", type=int,
+                        help="log level 1-5", default=4)
     parser.add_argument(
         "files", type=str, help="input files to check", action='append', nargs='+')
     args = parser.parse_args()
+
+    if args.log_level == 1:
+        args.log_level = logging.CRITICAL
+    elif args.log_level == 2:
+        args.log_level = logging.ERROR
+    elif args.log_level == 3:
+        args.log_level = logging.WARNING
+    elif args.log_level == 4:
+        args.log_level = logging.INFO
+    elif args.log_level == 5:
+        args.log_level = logging.DEBUG
 
     return args
 
