@@ -11,12 +11,22 @@ URL:            http://www.fmi.fi
 Source0: 	%{name}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Requires:       python3
+
+%if %{defined el8}
+Requires:	python3-numpy
+Requires:	python3-dateutil
+Requires:	python3-PyYAML
+%else if %{defined el7}
 Requires:	python36-numpy
 Requires:	python36-dateutil
 Requires:	python36-PyYAML
+%endif
+
 Provides:	grid-check.py
 
 AutoReqProv: no
+
+%global debug_package %{nil}
 
 %description
 grid-check tool does basic data quality checks to gridded fields (grib)
