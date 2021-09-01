@@ -12,6 +12,7 @@ import copy
 from random import randrange
 from datetime import datetime, timedelta
 
+import pydash
 
 class TestNotImplementedException(Exception):
     pass
@@ -527,8 +528,24 @@ def parse_parameters(config):
 
     return parameters
 
+def apply_patch_to_configuration(config, patches):
+    for patch in patches:
 
-def parse_configuration_file(configuration_file):
+        (k,v) = patch.split('=')
+        element = pydash.get(config, k)
+
+        if element is None:
+            logging.debug("PATCH: Adding element {}={} to configuration".format(k,v))
+
+        if v == 'None':
+            pydash.unset(config, k)
+        else:
+            pydash.set_(config, k, v)
+
+    return config
+
+
+def parse_configuration_file(configuration_file, patch):
     config = None
     with open(configuration_file, 'r') as fp:
         try:
@@ -537,6 +554,9 @@ def parse_configuration_file(configuration_file):
             logging.fatal(exc)
             sys.exit(1)
 
+    if patch is not None:
+        config = apply_patch_to_configuration(config, patch)
+
     return config, parse_forecast_types(config), parse_leadtimes(config), parse_parameters(config)
 
 
@@ -544,6 +564,8 @@ def parse_command_line():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--configuration", type=str,
                         help="configuration file for checker", required=True)
+    parser.add_argument("-p", "--patch", type=str, action='append',
+                        help="modify configuration file with in-line options", required=False)
     parser.add_argument("-d", "--log-level", type=int,
                         help="log level 1-5", default=4)
     parser.add_argument(
@@ -572,7 +594,8 @@ def main():
         datefmt='%Y-%m-%d %H:%M:%S')
 
     config, forecast_types, leadtimes, parameters = parse_configuration_file(
-        args.configuration)
+        args.configuration, args.patch)
+
     dims = {
         'forecast_types': forecast_types,
         'leadtimes': leadtimes,

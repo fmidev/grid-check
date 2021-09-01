@@ -160,6 +160,23 @@ and it is copying the keys from 'Precipitation' using 'Parent', and it is defini
 
 Input files are given as command line arguments.
 
+# Inline patching
+
+It possible to do simple inline patching to configuration files, to easily modify a configuration on-the-fly.
+
+For this command line option -p, --patch should be used.
+
+For example, to modify the LeadTimes.Stop value in the example yaml, use the following command
+
+```
+$ grid-check.py -c <config> -p LeadTimes[0].Stop='24:00:00' ...
+```
+
+Multiple -p options can be specified. To remove a key, set the value to "None". A key that does not exists will be created.
+
+Anykind of filtering is not possible to do; for more complex options it is recommended to use a yaml filtering program like `yq` to pre-process the configuration file.
+
+
 # Example
 
 ```
