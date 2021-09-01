@@ -76,7 +76,7 @@ Tests:
   - Name: check t2m envelope
     Sample: 10%
     Parameters:
-      - Names:
+      Names:
         - Temperature
     Test:
       Type: ENVELOPE
