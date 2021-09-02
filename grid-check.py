@@ -540,6 +540,16 @@ def apply_patch_to_configuration(config, patches):
         if v == 'None':
             pydash.unset(config, k)
         else:
+            # try to cast value to native data format, because
+            # eccodes is indexing data with numbers whenever it can
+            try:
+                v = int(v)
+            except ValueError as e:
+                try:
+                    v = float(v)
+                except ValueError as ee:
+                    pass
+
             pydash.set_(config, k, v)
 
     return config
