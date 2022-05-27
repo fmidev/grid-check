@@ -464,7 +464,7 @@ def check(config, dims, files):
                 return_code = retval
 
             if retval == 0:
-                logging.debug(summary['message'])
+                logging.info(summary['message'])
             else:
                 logging.error(summary['message'])
 
