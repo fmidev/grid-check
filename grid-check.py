@@ -471,7 +471,7 @@ def check(config, dims, files):
     logging.info(
         f"Total Summary: successful tests: {success}, failed: {fail}, skipped: {skip}")
 
-    sys.exit(return_code)
+    return return_code
 
 
 def parse_forecast_types(config):
@@ -613,8 +613,8 @@ def main():
         'parameters': parameters
     }
 
-    check(config, dims, index_grib_files(args.files))
+    return check(config, dims, index_grib_files(args.files))
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

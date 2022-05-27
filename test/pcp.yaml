@@ -1,0 +1,49 @@
+LeadTimes:
+  - Start: 3h
+    Stop: 12h
+    Step: 3h
+ForecastTypes:
+  - Grib2MetaData:
+    - Key: typeOfProcessedData
+      Value: 3
+    - Key: perturbationNumber
+      Value: 0
+Parameters:
+  - Name: Precipitation
+    Grib2MetaData:
+      - Key: discipline
+        Value: 0
+      - Key: parameterCategory
+        Value: 1
+      - Key: parameterNumber
+        Value: 8
+      - Key: typeOfFirstFixedSurface
+        Value: 103
+      - Key: typeOfStatisticalProcessing
+        Value: 1
+  - Name: Precipitation_lagged
+    Parent: Precipitation
+#    Grib2MetaData:
+#      - Key: discipline
+#        Value: 0
+#      - Key: parameterCategory
+#        Value: 1
+#      - Key: parameterNumber
+#        Value: 8
+#      - Key: typeOfFirstFixedSurface
+#        Value: 103
+#      - Key: typeOfStatisticalProcessing
+#        Value: 1
+    Lag: 6h
+Tests:
+  - Name: check pcp envelope
+    Sample: 40%
+    Parameters: 
+      Names:
+        - Precipitation
+        - Precipitation_lagged
+    Test:
+      Preprocess: Precipitation - Precipitation_lagged
+      Type: ENVELOPE
+      MinAllowed: -0.01
+      MaxAllowed: 50
