@@ -441,7 +441,7 @@ def tie(req_parameters, parameters):
     return ret
 
 
-def check(config, dims, files):
+def check(config, dims, files, strict = False):
     success = 0
     fail = 0
     skip = 0
@@ -470,6 +470,9 @@ def check(config, dims, files):
 
     logging.info(
         f"Total Summary: successful tests: {success}, failed: {fail}, skipped: {skip}")
+
+    if strict and (fail > 0 or skip > 0):
+        return_code = 1
 
     return return_code
 
@@ -579,6 +582,7 @@ def parse_command_line():
                         help="modify configuration file with in-line options", required=False)
     parser.add_argument("-d", "--log-level", type=int,
                         help="log level 1-5", default=4)
+    parser.add_argument("--strict", action='store_true', help="exit if error if any test fails or is skipped", default=False)
     parser.add_argument(
         "files", type=str, help="input files to check", action='append', nargs='+')
     args = parser.parse_args()
@@ -613,7 +617,7 @@ def main():
         'parameters': parameters
     }
 
-    return check(config, dims, index_grib_files(args.files))
+    return check(config, dims, index_grib_files(args.files), args.strict)
 
 
 if __name__ == "__main__":

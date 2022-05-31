@@ -23,17 +23,6 @@ Parameters:
         Value: 1
   - Name: Precipitation_lagged
     Parent: Precipitation
-#    Grib2MetaData:
-#      - Key: discipline
-#        Value: 0
-#      - Key: parameterCategory
-#        Value: 1
-#      - Key: parameterNumber
-#        Value: 8
-#      - Key: typeOfFirstFixedSurface
-#        Value: 103
-#      - Key: typeOfStatisticalProcessing
-#        Value: 1
     Lag: 6h
 Tests:
   - Name: check pcp envelope

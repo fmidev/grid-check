@@ -24,3 +24,19 @@ def test_pcp():
 
     assert(gc.check(config, dims, gc.index_grib_files(files)) == 0)
 
+def test_strict():
+
+    config = 'pcp.yaml'
+    files = [['pcp.grib2']]
+
+    patch = ["LeadTimes[0].Stop=24:00:00"]
+    config, forecast_types, leadtimes, parameters = gc.parse_configuration_file(config, patch)
+
+    dims = {
+        'forecast_types': forecast_types,
+        'leadtimes': leadtimes,
+        'parameters': parameters
+    }
+
+    assert(gc.check(config, dims, gc.index_grib_files(files), strict=True) == 0)
+
