@@ -2,7 +2,7 @@
 
 %define PACKAGENAME grid-check
 Name:           %{PACKAGENAME}
-Version:        20.5.14
+Version:        22.5.31
 Release:        1%{dist}.fmi
 Summary:        grid-check application
 Group:          Applications/System
@@ -49,6 +49,8 @@ rm -rf %{buildroot}
 %{_bindir}/grid-check.py
 
 %changelog
+* Tue May 31 2022 Mikko Partio <mikko.partio@fmi.fi> - 22.5.31-1.fmi
+- New release
 * Thu May 14 2020 Mikko Partio <mikko.partio@fmi.fi> - 20.5.14-1.fmi
 - Add support for lagging data
 * Tue May 12 2020 Mikko Partio <mikko.partio@fmi.fi> - 20.5.12-1.fmi
