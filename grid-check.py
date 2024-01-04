@@ -327,6 +327,61 @@ def execute_variance_test(test, forecast_types, leadtimes, parameters, files):
     return ret
 
 
+
+def execute_grid_mean_test(test, forecast_types, leadtimes, parameters, files):
+    ret = {
+        'success': 0,
+        'fail': 0,
+        'skip': 0,
+        'summary': []
+    }
+
+    for ft in forecast_types:
+        lparameters = inject(copy.deepcopy(parameters), ft)
+        for lt in leadtimes:
+            lparameters = inject(lparameters, timedelta_to_grib2metadata(lt))
+
+            sample = read_sample(preprocess(read_grids(
+                files, lparameters), test['Test']), test['Sample'])
+
+            if sample is None:
+                ret['skip'] += 1
+                continue
+
+            smean = np.mean(sample)
+
+            mina = None
+            maxa = None
+            try:
+                mina = test['Test']['MinAllowed']
+                maxa = test['Test']['MaxAllowed']
+            except KeyError as e:
+                pass
+
+            if mina is None and maxa is None:
+                continue
+
+            retval = 0
+            word = ""
+
+            if (mina != None and smean < mina) or (maxa != None and smean > maxa):
+                retval = 1
+                word = "not "
+
+            ret['summary'].append(
+                {
+                    "return_value": retval,
+                    "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Grid mean {smean:.2f} is {word}inside given limits [{mina} {maxa}], sample={sample.size}"
+                })
+
+            if retval == 0:
+                ret['success'] += 1
+            elif retval == 1:
+                ret['fail'] += 1
+
+    return ret
+
+
 def execute_test(test, forecast_types, leadtimes, parameters, files):
 
     ty = test['Test']['Type']
@@ -347,6 +402,14 @@ def execute_test(test, forecast_types, leadtimes, parameters, files):
             f"Executing {ty} test '{test['Name']}', allowed variance: [{minv}, {maxv}]")
 
         return execute_variance_test(test, forecast_types, leadtimes, parameters, files)
+    elif ty == "GRID_MEAN":
+        mina = test['Test']['MinAllowed'] if 'MinAllowed' in test['Test'] else None
+        maxa = test['Test']['MaxAllowed'] if 'MaxAllowed' in test['Test'] else None
+
+        logging.info(
+            f"Executing {ty} test '{test['Name']}', allowed range: [{mina}, {maxa}]")
+
+        return execute_grid_mean_test(test, forecast_types, leadtimes, parameters, files)
     else:
         raise TestNotImplementedException(
             "Unsupported test: %s" % test['Test'])
