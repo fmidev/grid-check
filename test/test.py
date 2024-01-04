@@ -40,3 +40,33 @@ def test_strict():
 
     assert(gc.check(config, dims, gc.index_grib_files(files), strict=True) == 0)
 
+def test_missing():
+
+    config = 'missing.yaml'
+    files = [['missing.grib2']]
+
+    config, forecast_types, leadtimes, parameters = gc.parse_configuration_file(config, None)
+
+    dims = {
+        'forecast_types': forecast_types,
+        'leadtimes': leadtimes,
+        'parameters': parameters
+    }
+
+    assert(gc.check(config, dims, gc.index_grib_files(files)) == 0)
+
+def test_tstm():
+
+    config = 'tstm.yaml'
+    files = [['tstm.grib2']]
+
+    config, forecast_types, leadtimes, parameters = gc.parse_configuration_file(config, None)
+
+    dims = {
+        'forecast_types': forecast_types,
+        'leadtimes': leadtimes,
+        'parameters': parameters
+    }
+
+    assert(gc.check(config, dims, gc.index_grib_files(files)) == 0)
+

@@ -6,10 +6,63 @@ grid-check is a simple tool to check the contents of gridded (meteorological) fi
 
 * Written in python3
 * Configuration through yaml files
-* Initial support for two different test types
+* Support for four different test types
   * Envelope test
   * Variance tests
+  * Grid mean value test
+  * Missing value test
 * Support for grib2 data type
+
+# Tests
+
+For all tests a sample is taken from the grid, sample size is configurable.
+
+## Envelope test
+
+Checks that values in sample are within given minimum and maximum. Either can be missing but not both.
+
+```
+Test:
+  Type: ENVELOPE
+  MinAllowed: -0.01
+  MaxAllowed: 50
+```
+
+## Variance test
+
+Checks that the variance of values in sample are within given minimum and maximum. Either can be missing but not both.
+
+```
+Test:
+  Type: VARIANCE
+  MinVariance: 0
+  MaxVariance: 5
+```
+
+Note: variance is calculated with function np.var()
+
+## Mean value test
+
+Checks that the sample mean is within given minimum and maximum. Either can be missing but not both.
+
+```
+Test:
+  Type: MEAN
+  MinAllowed: 10
+  MaxAllowed: 15
+```
+
+## Missing value test
+
+Checks that the number of missing values in the sample n is within given minimum and maximum. Either can be missing but not both.
+Percent can be used to indicate relative missing count to sample size.
+
+```
+Test:
+  Type: MISSING
+  MinAllowed: 0
+  MaxAllowed: 80%
+```
 
 # Configuration
 
