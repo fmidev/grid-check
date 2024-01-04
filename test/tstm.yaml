@@ -1,0 +1,29 @@
+LeadTimes:
+  - Start: 0h
+    Stop: 0h
+    Step: 1h
+ForecastTypes:
+  - Grib2MetaData:
+    - Key: typeOfProcessedData
+      Value: 2
+Parameters:
+  - Name: POT
+    Grib2MetaData:
+      - Key: discipline
+        Value: 0
+      - Key: parameterCategory
+        Value: 19
+      - Key: parameterNumber
+        Value: 2
+      - Key: typeOfFirstFixedSurface
+        Value: 103
+Tests:
+  - Name: check tstm grid mean
+    Sample: 40%
+    Parameters: 
+      Names:
+        - POT
+    Test:
+      Type: GRID_MEAN
+      MinAllowed: 0
+      MaxAllowed: 70
