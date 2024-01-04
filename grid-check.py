@@ -14,6 +14,8 @@ from datetime import datetime, timedelta
 
 import pydash
 
+MISS = -1e19
+
 
 class TestNotImplementedException(Exception):
     pass
@@ -122,13 +124,45 @@ def read_grib_message(index, conditions):
     return leaf
 
 
-def read_sample(grid, sample_size):
+def read_sample(grid, sample_size, remove_missing=True):
     if grid is None:
         return None
 
+    if remove_missing is False:
+        if "%" in str(sample_size):
+            sample_size = int(int(sample_size[:-1]) * 0.01 * grid.size)
+
+        # return masked array to normal array
+        ngrid = grid.data
+
+        # select a random sample
+        ngrid = np.random.choice(ngrid, sample_size)
+
+        # apply mask once again
+        ngrid = np.ma.masked_where(ngrid == MISS, ngrid)
+
+        return ngrid
+
+    # remove masked, ie missing values
+    ngrid = grid.compressed()
+
     if "%" in str(sample_size):
-        sample_size = int(int(sample_size[:-1]) * 0.01 * grid.size)
-    return np.random.choice(grid, sample_size)
+        sample_size = int(int(sample_size[:-1]) * 0.01 * ngrid.size)
+
+    if grid.size == 0:
+        logging.warning("All elements of grid are missing")
+        return None
+
+    miss_ratio = float(ngrid.size) / grid.size
+    if miss_ratio < 0.40:
+        logging.warning(
+            "{:.1f}% of grid elements are missing, cannot generate a sample".format(
+                100 * (1 - miss_ratio)
+            ),
+        )
+        return None
+
+    return np.random.choice(ngrid, sample_size)
 
 
 def string_to_timedelta(string):
@@ -174,8 +208,9 @@ def read_data(grid):
         fp.close()
 
     gid = ecc.codes_new_from_message(buff)
-
+    ecc.codes_set(gid, "missingValue", MISS)
     values = np.array(ecc.codes_get_values(gid))
+    values = np.ma.masked_where(values == MISS, values)
     ecc.codes_release(gid)
 
     return values
@@ -319,7 +354,7 @@ def execute_variance_test(test, forecast_types, leadtimes, parameters, files):
     return ret
 
 
-def execute_grid_mean_test(test, forecast_types, leadtimes, parameters, files):
+def execute_mean_test(test, forecast_types, leadtimes, parameters, files):
     ret = {"success": 0, "fail": 0, "skip": 0, "summary": []}
 
     for ft in forecast_types:
@@ -358,7 +393,60 @@ def execute_grid_mean_test(test, forecast_types, leadtimes, parameters, files):
             ret["summary"].append(
                 {
                     "return_value": retval,
-                    "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Grid mean {smean:.2f} is {word}inside given limits [{mina} {maxa}], sample={sample.size}",
+                    "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Mean {smean:.2f} is {word}inside given limits [{mina} {maxa}], sample={sample.size}",
+                }
+            )
+
+            if retval == 0:
+                ret["success"] += 1
+            elif retval == 1:
+                ret["fail"] += 1
+
+    return ret
+
+
+def execute_missing_value_test(test, forecast_types, leadtimes, parameters, files):
+    ret = {"success": 0, "fail": 0, "skip": 0, "summary": []}
+
+    for ft in forecast_types:
+        lparameters = inject(copy.deepcopy(parameters), ft)
+        for lt in leadtimes:
+            lparameters = inject(lparameters, timedelta_to_grib2metadata(lt))
+
+            sample = read_sample(
+                preprocess(read_grids(files, lparameters), test["Test"]),
+                test["Sample"],
+                remove_missing=False,
+            )
+
+            if sample is None:
+                ret["skip"] += 1
+                continue
+
+            missing = np.ma.count_masked(sample)
+
+            mina = test["Test"].get("MinAllowed", None)
+            maxa = test["Test"].get("MaxAllowed", None)
+
+            if mina is None and maxa is None:
+                continue
+
+            if "%" in str(mina):
+                mina = int(0.01 * sample.size)
+            if "%" in str(maxa):
+                maxa = int(0.01 * sample.size)
+
+            retval = 0
+            word = ""
+
+            if (mina != None and missing < mina) or (maxa != None and missing > maxa):
+                retval = 1
+                word = "not "
+
+            ret["summary"].append(
+                {
+                    "return_value": retval,
+                    "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Number of missing values {missing:.0f} is {word}inside given limits [{mina} {maxa}], sample={sample.size}",
                 }
             )
 
@@ -391,7 +479,7 @@ def execute_test(test, forecast_types, leadtimes, parameters, files):
         )
 
         return execute_variance_test(test, forecast_types, leadtimes, parameters, files)
-    elif ty == "GRID_MEAN":
+    elif ty == "MEAN":
         mina = test["Test"]["MinAllowed"] if "MinAllowed" in test["Test"] else None
         maxa = test["Test"]["MaxAllowed"] if "MaxAllowed" in test["Test"] else None
 
@@ -399,7 +487,18 @@ def execute_test(test, forecast_types, leadtimes, parameters, files):
             f"Executing {ty} test '{test['Name']}', allowed range: [{mina}, {maxa}]"
         )
 
-        return execute_grid_mean_test(
+        return execute_mean_test(
+            test, forecast_types, leadtimes, parameters, files
+        )
+    elif ty == "MISSING":
+        mina = test["Test"]["MinAllowed"] if "MinAllowed" in test["Test"] else None
+        maxa = test["Test"]["MaxAllowed"] if "MaxAllowed" in test["Test"] else None
+
+        logging.info(
+            f"Executing {ty} test '{test['Name']}', allowed range: [{mina}, {maxa}]"
+        )
+
+        return execute_missing_value_test(
             test, forecast_types, leadtimes, parameters, files
         )
     else:
