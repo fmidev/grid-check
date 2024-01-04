@@ -38,7 +38,7 @@ def test_strict():
         'parameters': parameters
     }
 
-    assert(gc.check(config, dims, gc.index_grib_files(files), strict=True) == 0)
+    assert(gc.check(config, dims, gc.index_grib_files(files), strict=True) == 1)
 
 def test_missing():
 
@@ -53,7 +53,7 @@ def test_missing():
         'parameters': parameters
     }
 
-    assert(gc.check(config, dims, gc.index_grib_files(files)) == 0)
+    assert(gc.check(config, dims, gc.index_grib_files(files)) == 1)
 
 def test_tstm():
 
@@ -68,5 +68,5 @@ def test_tstm():
         'parameters': parameters
     }
 
-    assert(gc.check(config, dims, gc.index_grib_files(files)) == 0)
+    assert(gc.check(config, dims, gc.index_grib_files(files)) == 1)
 

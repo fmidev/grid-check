@@ -24,6 +24,6 @@ Tests:
       Names:
         - POT
     Test:
-      Type: GRID_MEAN
+      Type: MEAN
       MinAllowed: 0
       MaxAllowed: 70

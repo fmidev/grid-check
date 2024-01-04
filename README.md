@@ -35,8 +35,8 @@ Checks that the variance of values in sample are within given minimum and maximu
 ```
 Test:
   Type: VARIANCE
-  MinVariance: 0
-  MaxVariance: 5
+  MinAllowed: 0
+  MaxAllowed: 5
 ```
 
 Note: variance is calculated with function np.var()
@@ -149,7 +149,7 @@ Tests:
           Value: 105
     Test:
       Type: VARIANCE
-      MinVariance: 50
+      MinAllowed: 50
   - Name: check ff envelope
     Sample: 20%
     Parameters:

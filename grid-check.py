@@ -260,6 +260,13 @@ def preprocess(grids, test):
 
 
 def execute_envelope_test(test, forecast_types, leadtimes, parameters, files):
+    mina = test["Test"].get("MinAllowed", None)
+    maxa = test["Test"].get("MaxAllowed", None)
+
+    logging.info(
+        f"Executing ENVELOPE test '{test['Name']}', allowed range: [{mina}, {maxa}]"
+    )
+
     ret = {"success": 0, "fail": 0, "skip": 0, "summary": []}
 
     for ft in forecast_types:
@@ -278,20 +285,17 @@ def execute_envelope_test(test, forecast_types, leadtimes, parameters, files):
             smin = np.amin(sample)
             smax = np.amax(sample)
 
-            emin = test["Test"]["MinAllowed"]
-            emax = test["Test"]["MaxAllowed"]
-
             retval = 0
             word = ""
 
-            if smin < emin or smax > emax:
+            if smin < mina or smax > maxa:
                 retval = 1
                 word = "not "
 
             ret["summary"].append(
                 {
                     "return_value": retval,
-                    "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Min or max [{smin:.2f} {smax:.2f}] is {word}inside allowed range [{emin:.2f} {emax:.2f}], sample={sample.size}",
+                    "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Min or max [{smin:.2f} {smax:.2f}] is {word}inside allowed range [{mina:.2f} {maxa:.2f}], sample={sample.size}",
                 }
             )
 
@@ -304,6 +308,17 @@ def execute_envelope_test(test, forecast_types, leadtimes, parameters, files):
 
 
 def execute_variance_test(test, forecast_types, leadtimes, parameters, files):
+    mina = test["Test"].get("MinAllowed", None)
+    maxa = test["Test"].get("MaxAllowed", None)
+
+    if mina is None and maxa is None:
+        mina = test["Test"].get("MinVariance", None)
+        maxa = test["Test"].get("MaxVariance", None)
+
+    logging.info(
+        f"Executing VARIANCE test '{test['Name']}', allowed variance: [{mina}, {maxa}]"
+    )
+
     ret = {"success": 0, "fail": 0, "skip": 0, "summary": []}
 
     for ft in forecast_types:
@@ -321,28 +336,20 @@ def execute_variance_test(test, forecast_types, leadtimes, parameters, files):
 
             svar = np.var(sample)
 
-            minvar = None
-            maxvar = None
-            try:
-                minvar = test["Test"]["MinVariance"]
-                maxvar = test["Test"]["MaxVariance"]
-            except KeyError as e:
-                pass
-
-            if minvar is None and maxvar is None:
+            if mina is None and maxa is None:
                 continue
 
             retval = 0
             word = ""
 
-            if (minvar != None and svar < minvar) or (maxvar != None and svar > maxvar):
+            if (mina != None and svar < mina) or (maxa != None and svar > maxa):
                 retval = 1
                 word = "not "
 
             ret["summary"].append(
                 {
                     "return_value": retval,
-                    "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Variance {svar:.2f} is {word}inside given limits [{minvar} {maxvar}], sample={sample.size}",
+                    "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Variance {svar:.2f} is {word}inside given limits [{mina} {maxa}], sample={sample.size}",
                 }
             )
 
@@ -355,6 +362,13 @@ def execute_variance_test(test, forecast_types, leadtimes, parameters, files):
 
 
 def execute_mean_test(test, forecast_types, leadtimes, parameters, files):
+    mina = test["Test"].get("MinAllowed", None)
+    maxa = test["Test"].get("MaxAllowed", None)
+
+    logging.info(
+        f"Executing MEAN test '{test['Name']}', allowed range: [{mina}, {maxa}]"
+    )
+
     ret = {"success": 0, "fail": 0, "skip": 0, "summary": []}
 
     for ft in forecast_types:
@@ -371,14 +385,6 @@ def execute_mean_test(test, forecast_types, leadtimes, parameters, files):
                 continue
 
             smean = np.mean(sample)
-
-            mina = None
-            maxa = None
-            try:
-                mina = test["Test"]["MinAllowed"]
-                maxa = test["Test"]["MaxAllowed"]
-            except KeyError as e:
-                pass
 
             if mina is None and maxa is None:
                 continue
@@ -405,7 +411,14 @@ def execute_mean_test(test, forecast_types, leadtimes, parameters, files):
     return ret
 
 
-def execute_missing_value_test(test, forecast_types, leadtimes, parameters, files):
+def execute_missing_test(test, forecast_types, leadtimes, parameters, files):
+    mina = test["Test"].get("MinAllowed", None)
+    maxa = test["Test"].get("MaxAllowed", None)
+
+    logging.info(
+        f"Executing MISSING test '{test['Name']}', allowed range: [{mina}, {maxa}]"
+    )
+
     ret = {"success": 0, "fail": 0, "skip": 0, "summary": []}
 
     for ft in forecast_types:
@@ -424,9 +437,6 @@ def execute_missing_value_test(test, forecast_types, leadtimes, parameters, file
                 continue
 
             missing = np.ma.count_masked(sample)
-
-            mina = test["Test"].get("MinAllowed", None)
-            maxa = test["Test"].get("MaxAllowed", None)
 
             if mina is None and maxa is None:
                 continue
@@ -462,45 +472,13 @@ def execute_test(test, forecast_types, leadtimes, parameters, files):
     ty = test["Test"]["Type"]
 
     if ty == "ENVELOPE":
-        mina = test["Test"]["MinAllowed"] if "MinAllowed" in test["Test"] else None
-        maxa = test["Test"]["MaxAllowed"] if "MaxAllowed" in test["Test"] else None
-
-        logging.info(
-            f"Executing {ty} test '{test['Name']}', allowed range: [{mina}, {maxa}]"
-        )
-
         return execute_envelope_test(test, forecast_types, leadtimes, parameters, files)
     elif ty == "VARIANCE":
-        minv = test["Test"]["MinVariance"] if "MinVariance" in test["Test"] else None
-        maxv = test["Test"]["MaxVariance"] if "MaxVariance" in test["Test"] else None
-
-        logging.info(
-            f"Executing {ty} test '{test['Name']}', allowed variance: [{minv}, {maxv}]"
-        )
-
         return execute_variance_test(test, forecast_types, leadtimes, parameters, files)
     elif ty == "MEAN":
-        mina = test["Test"]["MinAllowed"] if "MinAllowed" in test["Test"] else None
-        maxa = test["Test"]["MaxAllowed"] if "MaxAllowed" in test["Test"] else None
-
-        logging.info(
-            f"Executing {ty} test '{test['Name']}', allowed range: [{mina}, {maxa}]"
-        )
-
-        return execute_mean_test(
-            test, forecast_types, leadtimes, parameters, files
-        )
+        return execute_mean_test(test, forecast_types, leadtimes, parameters, files)
     elif ty == "MISSING":
-        mina = test["Test"]["MinAllowed"] if "MinAllowed" in test["Test"] else None
-        maxa = test["Test"]["MaxAllowed"] if "MaxAllowed" in test["Test"] else None
-
-        logging.info(
-            f"Executing {ty} test '{test['Name']}', allowed range: [{mina}, {maxa}]"
-        )
-
-        return execute_missing_value_test(
-            test, forecast_types, leadtimes, parameters, files
-        )
+        return execute_missing_test(test, forecast_types, leadtimes, parameters, files)
     else:
         raise TestNotImplementedException("Unsupported test: %s" % test["Test"])
 
@@ -604,6 +582,8 @@ def check(config, dims, files, strict=False):
     skip = 0
 
     return_code = 0
+    combined_errors = []
+
     for test in config["Tests"]:
         summaries = execute_test(
             test,
@@ -629,10 +609,18 @@ def check(config, dims, files, strict=False):
                 logging.info(summary["message"])
             else:
                 logging.error(summary["message"])
+                combined_errors.append(
+                    {"name": test["Name"], "message": summary["message"]}
+                )
 
     logging.info(
         f"Total Summary: successful tests: {success}, failed: {fail}, skipped: {skip}"
     )
+
+    if len(combined_errors) > 0:
+        logging.error("Summary of errors:")
+        for err in combined_errors:
+            logging.error("'{}': {}".format(err["name"], err["message"]))
 
     if strict and (fail > 0 or skip > 0):
         return_code = 1
