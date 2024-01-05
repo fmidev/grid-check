@@ -9,7 +9,7 @@ jobs:
     uses: fmidev/github-actions-workflows/.github/workflows/rpmbuild-workflow.yaml@main
     with:
       rpm_base_image: rockylinux/rockylinux:9
-      rpm_spec_file: radon-tools.spec
+      rpm_spec_file: grid-check.spec
       rpm_additional_repositories: "epel-release,https://download.fmi.fi/smartmet-open/rhel/9/x86_64/smartmet-open-release-latest-9.noarch.rpm"
       rpm_dnf_commands: "dnf config-manager --setopt='epel.exclude=eccodes*' --save"
       image_name: grid-check
