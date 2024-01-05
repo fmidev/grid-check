@@ -5,15 +5,14 @@ RUN rpm -ivh https://download.fmi.fi/smartmet-open/rhel/9/x86_64/smartmet-open-r
     dnf -y install dnf-plugins-core && \
     dnf config-manager --setopt="epel.exclude=eccodes*" --save && \
     dnf -y update && \
-    dnf -y install git eccodes grid-check && \
+    dnf -y install git eccodes python3-pip && \
     dnf -y clean all
 
-#RUN git clone https://github.com/fmidev/grid-check.git
+RUN git clone https://github.com/fmidev/grid-check.git
 
-#WORKDIR /grid-check
+WORKDIR /grid-check
 
-#ENV PATH /grid-check:$PATH
+ENV PATH /grid-check:$PATH
 
-#RUN python3.11 -m pip --no-cache-dir install -r requirements.txt && \
-#    python3.11 -m pip --no-cache-dir install s3cmd && \
-#    sed -i 's/python3/python3.11/' grid-check.py
+RUN python3 -m pip --no-cache-dir install -r requirements.txt && \
+    python3 -m pip --no-cache-dir install s3cmd
