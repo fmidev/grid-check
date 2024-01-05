@@ -32,7 +32,9 @@ Tests:
         - Precipitation
         - Precipitation_lagged
     Test:
-      Preprocess: Precipitation - Precipitation_lagged
+      Preprocess:
+        Function: Precipitation - Precipitation_lagged
+        Rename: Precipitation6h
       Type: ENVELOPE
       MinAllowed: -0.01
       MaxAllowed: 50

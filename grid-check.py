@@ -93,7 +93,6 @@ def index_grib_files(grib_files):
                 ref["message_no"] = message_no
                 ref["length"] = length
                 ref["offset"] = offset
-                #                print(ref)
 
                 message_no += 1
                 offset += length
@@ -124,45 +123,71 @@ def read_grib_message(index, conditions):
     return leaf
 
 
-def read_sample(grid, sample_size, remove_missing=True):
-    if grid is None:
-        return None
+def read_sample(grids, sample_size, remove_missing=True):
+    if grids is None or len(grids) == 0:
+        return []
 
-    if remove_missing is False:
+    def sample_without_missing_values(g):
+        nonlocal sample_size
+        # remove missing values
+        ngrid = g.compressed()
+
         if "%" in str(sample_size):
-            sample_size = int(int(sample_size[:-1]) * 0.01 * grid.size)
+            sample_size = int(int(sample_size[:-1]) * 0.01 * ngrid.size)
+
+        if g.size == 0:
+            logging.warning("All elements of grid are missing")
+            return None
+
+        # If majority of grid is missing, don't generate a sample
+        miss_ratio = float(ngrid.size) / g.size
+        if miss_ratio < 0.40:
+            logging.warning(
+                "{:.1f}% of grid elements are missing, cannot generate a sample".format(
+                    100 * (1 - miss_ratio)
+                ),
+            )
+
+            return None
+
+        return np.random.choice(ngrid, sample_size)
+
+    def sample_with_missing_values(g):
+        nonlocal sample_size
+        if "%" in str(sample_size):
+            sample_size = int(int(sample_size[:-1]) * 0.01 * g.size)
 
         # return masked array to normal array
-        ngrid = grid.data
+        ngrid = g.data
 
         # select a random sample
-        ngrid = np.random.choice(ngrid, sample_size)
+        sample = np.random.choice(ngrid, sample_size)
 
         # apply mask once again
-        ngrid = np.ma.masked_where(ngrid == MISS, ngrid)
+        sample = np.ma.masked_where(sample == MISS, sample)
 
-        return ngrid
+        return sample
 
-    # remove masked, ie missing values
-    ngrid = grid.compressed()
+    ret = []
 
-    if "%" in str(sample_size):
-        sample_size = int(int(sample_size[:-1]) * 0.01 * ngrid.size)
+    if remove_missing:
+        ret = [
+            {
+                "Parameter": g["Parameter"],
+                "Values": sample_without_missing_values(g["Values"]),
+            }
+            for g in grids
+        ]
+    else:
+        ret = [
+            {
+                "Parameter": g["Parameter"],
+                "Values": sample_with_missing_values(g["Values"]),
+            }
+            for g in grids
+        ]
 
-    if grid.size == 0:
-        logging.warning("All elements of grid are missing")
-        return None
-
-    miss_ratio = float(ngrid.size) / grid.size
-    if miss_ratio < 0.40:
-        logging.warning(
-            "{:.1f}% of grid elements are missing, cannot generate a sample".format(
-                100 * (1 - miss_ratio)
-            ),
-        )
-        return None
-
-    return np.random.choice(ngrid, sample_size)
+    return ret
 
 
 def string_to_timedelta(string):
@@ -241,246 +266,167 @@ def read_grids(index, parameters):
 def preprocess(grids, test):
     if len(grids.keys()) == 0:
         return None
+
+    prep = test.get("Preprocess", None)
+
+    if prep is None:
+        return [{"Parameter": x, "Values": grids[x]} for x in grids.keys()]
+
     try:
-        prep = test["Preprocess"]
         locals().update(grids)
-        return eval(prep)
+        processed = eval(prep["Function"])
+        name = prep.get("Rename", None)
+        name = name if name is not None else str(prep)
+
+        return [{"Parameter": name, "Values": processed}]
 
     except NameError as e:
         logging.fatal(f"Invalid preprocessing function: {prep}: {e}")
         sys.exit(1)
 
-    except KeyError as e:
-        if len(grids.keys()) > 1:
-            logging.fatal(
-                "Don't know how to merge multiple grids without preprocessing directive"
-            )
-            sys.exit(1)
-        return list(grids.values())[0]
+
+def execute_envelope_test(sample, mina, maxa):
+    smin = np.amin(sample)
+    smax = np.amax(sample)
+
+    retval = True
+
+    if smin < mina or smax > maxa:
+        retval = False
+
+    return {
+        "return_code": retval,
+        "message": f"Min and max [{smin:.2f} {smax:.2f}], limits [{mina:.2f} {maxa:.2f}], sample={sample.size}",
+    }
 
 
-def execute_envelope_test(test, forecast_types, leadtimes, parameters, files):
-    mina = test["Test"].get("MinAllowed", None)
-    maxa = test["Test"].get("MaxAllowed", None)
+def execute_variance_test(sample, mina, maxa):
+    svar = np.var(sample)
 
-    logging.info(
-        f"Executing ENVELOPE test '{test['Name']}', allowed range: [{mina}, {maxa}]"
-    )
+    retval = True
 
-    ret = {"success": 0, "fail": 0, "skip": 0, "summary": []}
+    if (mina != None and svar < mina) or (maxa != None and svar > maxa):
+        retval = False
 
-    for ft in forecast_types:
-        lparameters = inject(copy.deepcopy(parameters), ft)
-        for lt in leadtimes:
-            lparameters = inject(lparameters, timedelta_to_grib2metadata(lt))
-
-            sample = read_sample(
-                preprocess(read_grids(files, lparameters), test["Test"]), test["Sample"]
-            )
-
-            if sample is None:
-                ret["skip"] += 1
-                continue
-
-            smin = np.amin(sample)
-            smax = np.amax(sample)
-
-            retval = 0
-            word = ""
-
-            if smin < mina or smax > maxa:
-                retval = 1
-                word = "not "
-
-            ret["summary"].append(
-                {
-                    "return_value": retval,
-                    "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Min or max [{smin:.2f} {smax:.2f}] is {word}inside allowed range [{mina:.2f} {maxa:.2f}], sample={sample.size}",
-                }
-            )
-
-            if retval == 0:
-                ret["success"] += 1
-            elif retval == 1:
-                ret["fail"] += 1
-
-    return ret
+    return {
+        "return_code": retval,
+        "message": f"Variance value {svar:.2f}, limits [{mina} {maxa}], sample={sample.size}",
+    }
 
 
-def execute_variance_test(test, forecast_types, leadtimes, parameters, files):
-    mina = test["Test"].get("MinAllowed", None)
-    maxa = test["Test"].get("MaxAllowed", None)
+def execute_mean_test(sample, mina, maxa):
+    smean = np.mean(sample)
 
-    if mina is None and maxa is None:
-        mina = test["Test"].get("MinVariance", None)
-        maxa = test["Test"].get("MaxVariance", None)
+    retval = True
 
-    logging.info(
-        f"Executing VARIANCE test '{test['Name']}', allowed variance: [{mina}, {maxa}]"
-    )
+    if (mina != None and smean < mina) or (maxa != None and smean > maxa):
+        retval = False
 
-    ret = {"success": 0, "fail": 0, "skip": 0, "summary": []}
-
-    for ft in forecast_types:
-        lparameters = inject(copy.deepcopy(parameters), ft)
-        for lt in leadtimes:
-            lparameters = inject(lparameters, timedelta_to_grib2metadata(lt))
-
-            sample = read_sample(
-                preprocess(read_grids(files, lparameters), test["Test"]), test["Sample"]
-            )
-
-            if sample is None:
-                ret["skip"] += 1
-                continue
-
-            svar = np.var(sample)
-
-            if mina is None and maxa is None:
-                continue
-
-            retval = 0
-            word = ""
-
-            if (mina != None and svar < mina) or (maxa != None and svar > maxa):
-                retval = 1
-                word = "not "
-
-            ret["summary"].append(
-                {
-                    "return_value": retval,
-                    "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Variance {svar:.2f} is {word}inside given limits [{mina} {maxa}], sample={sample.size}",
-                }
-            )
-
-            if retval == 0:
-                ret["success"] += 1
-            elif retval == 1:
-                ret["fail"] += 1
-
-    return ret
+    return {
+        "return_code": retval,
+        "message": f"Mean value {smean:.2f}, limits [{mina} {maxa}], sample={sample.size}",
+    }
 
 
-def execute_mean_test(test, forecast_types, leadtimes, parameters, files):
-    mina = test["Test"].get("MinAllowed", None)
-    maxa = test["Test"].get("MaxAllowed", None)
+def execute_missing_test(sample, mina, maxa):
+    missing = np.ma.count_masked(sample)
 
-    logging.info(
-        f"Executing MEAN test '{test['Name']}', allowed range: [{mina}, {maxa}]"
-    )
+    if "%" in str(mina):
+        mina = int(0.01 * sample.size)
+    if "%" in str(maxa):
+        maxa = int(0.01 * sample.size)
 
-    ret = {"success": 0, "fail": 0, "skip": 0, "summary": []}
+    retval = True
 
-    for ft in forecast_types:
-        lparameters = inject(copy.deepcopy(parameters), ft)
-        for lt in leadtimes:
-            lparameters = inject(lparameters, timedelta_to_grib2metadata(lt))
+    if (mina != None and missing < mina) or (maxa != None and missing > maxa):
+        retval = False
 
-            sample = read_sample(
-                preprocess(read_grids(files, lparameters), test["Test"]), test["Sample"]
-            )
-
-            if sample is None:
-                ret["skip"] += 1
-                continue
-
-            smean = np.mean(sample)
-
-            if mina is None and maxa is None:
-                continue
-
-            retval = 0
-            word = ""
-
-            if (mina != None and smean < mina) or (maxa != None and smean > maxa):
-                retval = 1
-                word = "not "
-
-            ret["summary"].append(
-                {
-                    "return_value": retval,
-                    "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Mean {smean:.2f} is {word}inside given limits [{mina} {maxa}], sample={sample.size}",
-                }
-            )
-
-            if retval == 0:
-                ret["success"] += 1
-            elif retval == 1:
-                ret["fail"] += 1
-
-    return ret
-
-
-def execute_missing_test(test, forecast_types, leadtimes, parameters, files):
-    mina = test["Test"].get("MinAllowed", None)
-    maxa = test["Test"].get("MaxAllowed", None)
-
-    logging.info(
-        f"Executing MISSING test '{test['Name']}', allowed range: [{mina}, {maxa}]"
-    )
-
-    ret = {"success": 0, "fail": 0, "skip": 0, "summary": []}
-
-    for ft in forecast_types:
-        lparameters = inject(copy.deepcopy(parameters), ft)
-        for lt in leadtimes:
-            lparameters = inject(lparameters, timedelta_to_grib2metadata(lt))
-
-            sample = read_sample(
-                preprocess(read_grids(files, lparameters), test["Test"]),
-                test["Sample"],
-                remove_missing=False,
-            )
-
-            if sample is None:
-                ret["skip"] += 1
-                continue
-
-            missing = np.ma.count_masked(sample)
-
-            if mina is None and maxa is None:
-                continue
-
-            if "%" in str(mina):
-                mina = int(0.01 * sample.size)
-            if "%" in str(maxa):
-                maxa = int(0.01 * sample.size)
-
-            retval = 0
-            word = ""
-
-            if (mina != None and missing < mina) or (maxa != None and missing > maxa):
-                retval = 1
-                word = "not "
-
-            ret["summary"].append(
-                {
-                    "return_value": retval,
-                    "message": f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])} Leadtime {lt} Number of missing values {missing:.0f} is {word}inside given limits [{mina} {maxa}], sample={sample.size}",
-                }
-            )
-
-            if retval == 0:
-                ret["success"] += 1
-            elif retval == 1:
-                ret["fail"] += 1
-
-    return ret
+    return {
+        "return_code": retval,
+        "message": f"Number of missing values {missing:.0f}, limits [{mina} {maxa}], sample={sample.size}",
+    }
 
 
 def execute_test(test, forecast_types, leadtimes, parameters, files):
     ty = test["Test"]["Type"]
 
+    remove_missing = True
+    func = None
     if ty == "ENVELOPE":
-        return execute_envelope_test(test, forecast_types, leadtimes, parameters, files)
+        func = execute_envelope_test
     elif ty == "VARIANCE":
-        return execute_variance_test(test, forecast_types, leadtimes, parameters, files)
+        func = execute_variance_test
     elif ty == "MEAN":
-        return execute_mean_test(test, forecast_types, leadtimes, parameters, files)
+        func = execute_mean_test
     elif ty == "MISSING":
-        return execute_missing_test(test, forecast_types, leadtimes, parameters, files)
+        remove_missing = False
+        func = execute_missing_test
     else:
         raise TestNotImplementedException("Unsupported test: %s" % test["Test"])
+
+    mina = test["Test"].get("MinAllowed", None)
+    maxa = test["Test"].get("MaxAllowed", None)
+
+    if mina is None and maxa is None and ty == "VARIANCE":
+        mina = test["Test"].get("MinVariance", None)
+        maxa = test["Test"].get("MaxVariance", None)
+
+    logging.info(
+        f"Executing {ty} test '{test['Name']}', allowed range: [{mina}, {maxa}]"
+    )
+
+    ret = {"success": 0, "fail": 0, "skip": 0, "summary": []}
+
+    for ft in forecast_types:
+        lparameters = inject(copy.deepcopy(parameters), ft)
+        for lt in leadtimes:
+            lparameters = inject(lparameters, timedelta_to_grib2metadata(lt))
+
+            samples = read_sample(
+                preprocess(read_grids(files, lparameters), test["Test"]),
+                test["Sample"],
+                remove_missing=remove_missing,
+            )
+
+            if len(samples) == 0:
+                ret["skip"] += 1
+                continue
+
+            for sample in samples:
+                if (
+                    mina is None
+                    and maxa is None
+                    or sample is None
+                    or sample["Values"] is None
+                ):
+                    ret["skip"] += 1
+
+                    continue
+
+                parameter = sample["Parameter"]
+                status = func(sample["Values"], mina, maxa)
+                return_code = status["return_code"]
+
+                if return_code:
+                    ret["success"] += 1
+                else:
+                    ret["fail"] += 1
+
+                message = ""
+
+                for kv in ft["Grib2MetaData"]:
+                    if kv["Key"] == "typeOfProcessedData":
+                        if str(kv["Value"]) != "2":
+                            message = f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])}"
+                        break
+
+                message += f"Leadtime {lt} Parameter {parameter} {status['message']}"
+
+                ret["summary"].append(
+                    {"return_value": not int(return_code), "message": message}
+                )
+
+    return ret
 
 
 def inject(conditions, injected):

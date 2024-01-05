@@ -160,7 +160,9 @@ Tests:
         - Key: level
           Value: 10
     Test:
-      Preprocess: np.hypot(U, V)
+      Preprocess:
+        Function: np.hypot(U, V)
+        Rename: WindSpeed
       Type: ENVELOPE
       MinAllowed: 0
       MaxAllowed: 25
@@ -171,7 +173,9 @@ Tests:
         - Precipitation
         - Precipitation_lagged
     Test:
-      Preprocess: Precipitation - Precipitation_lagged
+      Preprocess:
+        Function: Precipitation - Precipitation_lagged
+        Rename: Precipitation6h
       Type: ENVELOPE
       MinAllowed: -0.01
       MaxAllowed: 50
