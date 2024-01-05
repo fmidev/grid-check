@@ -1,9 +1,16 @@
+%if !0%{?version:1}
+%define version 22.5.31
+%endif
+
+%if !0%{?release:1}
+%define release 1
+%endif
+
 %define distnum %(/usr/lib/rpm/redhat/dist.sh --distnum)
 
-%define PACKAGENAME grid-check
-Name:           %{PACKAGENAME}
-Version:        22.5.31
-Release:        1%{dist}.fmi
+Name:           grid-check
+Version:        %{version}
+Release:        %{release}%{dist}.fmi
 Summary:        grid-check application
 Group:          Applications/System
 License:        MIT
@@ -24,7 +31,7 @@ AutoReqProv: no
 grid-check tool does basic data quality checks to gridded fields (grib)
 
 %prep
-%setup -q -n "%{PACKAGENAME}"
+%setup -q -n "grid-check"
 
 %build
 
