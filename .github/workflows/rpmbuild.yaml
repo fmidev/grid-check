@@ -1,0 +1,22 @@
+on: # yamllint disable-line rule:truthy
+  push:
+    branches: ["master"]
+
+name: Create RPM Release
+
+jobs:
+  call-rpmbuild-workflow:
+    uses: fmidev/github-actions-workflows/.github/workflows/rpmbuild-workflow.yaml@main
+    with:
+      rpm_base_image: rockylinux/rockylinux:9
+      rpm_spec_file: radon-tools.spec
+      rpm_additional_repositories: "epel-release,https://download.fmi.fi/smartmet-open/rhel/9/x86_64/smartmet-open-release-latest-9.noarch.rpm"
+      rpm_dnf_commands: "dnf config-manager --setopt='epel.exclude=eccodes*' --save"
+      image_name: grid-check
+      image_test_command: grid-check.py --help
+    secrets:
+      RPM_API_HOST: ${{ secrets.RPM_API_HOST }}
+      RPM_API_USER: ${{ secrets.RPM_API_USER }}
+      RPM_API_PASS: ${{ secrets.RPM_API_PASS }}
+      QUAY_USER: ${{ secrets.QUAY_USER }}
+      QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
