@@ -165,24 +165,12 @@ def read_sample(grids, sample_size, remove_missing=True):
 
     ret = []
 
-    if remove_missing:
-        ret = [
-            {
-                "Parameter": g["Parameter"],
-                "Values": sample_without_missing_values(g["Values"]),
-            }
-            for g in grids
-        ]
-    else:
-        ret = [
-            {
-                "Parameter": g["Parameter"],
-                "Values": sample_with_missing_values(g["Values"]),
-            }
-            for g in grids
-        ]
+    func = sample_without_missing_values if remove_missing else sample_with_missing_values
 
-    return ret
+    for g in grids:
+        g["Values"] = func(g["Values"])
+
+    return grids
 
 
 def string_to_timedelta(string):
@@ -222,6 +210,10 @@ def format_metadata_to_string(metadata):
 
 
 def read_data(grid):
+    """
+    Read data values from grib file given the offset and length from index.
+    Also provide some additional metadata that is not stored in the index.
+    """
     with open(grid["file_name"], "rb") as fp:
         fp.seek(grid["offset"], 0)
         buff = fp.read(grid["length"])
@@ -229,17 +221,28 @@ def read_data(grid):
 
     gid = ecc.codes_new_from_message(buff)
     ecc.codes_set(gid, "missingValue", MISS)
+
+    ret = {}
     values = np.array(ecc.codes_get_values(gid))
-    values = np.ma.masked_where(values == MISS, values)
+    ret["Values"] = np.ma.masked_where(values == MISS, values)
+
+    dd = ecc.codes_get_long(gid, "dataDate")
+    dt = ecc.codes_get_long(gid, "dataTime")
+    es = ecc.codes_get_long(gid, "endStep")
+
+    ret["AnalysisTime"] = datetime.strptime(f"{dd}{dt:04d}", "%Y%m%d%H%M")
+    ret["ForecastTime"] = ret["AnalysisTime"] + timedelta(hours=es)
+
     ecc.codes_release(gid)
 
-    return values
+    return ret
 
 
 def read_grids(index, parameters):
     grids = {}
     for param in parameters:
         grid = read_grib_message(index, parameters[param]["Grib2MetaData"])
+
         if grid is not None:
             logging.debug(
                 f"Read {format_metadata_to_string(parameters[param]['Grib2MetaData'])}"
@@ -259,16 +262,29 @@ def read_grids(index, parameters):
 
 
 def preprocess(grids, test):
-    if len(grids.keys()) == 0:
+    '''
+    Preprocess grids before running the test.
+    Only if Preprocess key is defined in the test configuration.
+    '''
+
+    if len(grids) == 0:
         return None
 
     prep = test.get("Preprocess", None)
 
     if prep is None:
-        return [{"Parameter": x, "Values": grids[x]} for x in grids.keys()]
+        return grids
 
     try:
-        locals().update(grids)
+        # Create local variables for the preprocessing function.
+        # This way the preprocessing function can access the variables names
+        # directly
+
+        lcl = locals()
+
+        for g in grids:
+            lcl[g["Parameter"]] = g["Values"]
+
         processed = eval(prep["Function"])
         name = prep.get("Rename", None)
         name = name if name is not None else str(prep)
@@ -303,9 +319,11 @@ def execute_test(test, forecast_types, leadtimes, parameters, files):
         lparameters = inject(copy.deepcopy(parameters), ft)
         for lt in leadtimes:
             lparameters = inject(lparameters, timedelta_to_grib2metadata(lt))
+            grids = read_grids(files, lparameters)
+            grids = [{"Parameter": x, **grids[x]} for x in grids.keys()]
 
             samples = read_sample(
-                preprocess(read_grids(files, lparameters), test["Test"]),
+                preprocess(grids, test["Test"]),
                 test["Sample"],
                 remove_missing=remove_missing,
             )
@@ -321,7 +339,7 @@ def execute_test(test, forecast_types, leadtimes, parameters, files):
                     continue
 
                 parameter = sample["Parameter"]
-                status = classname(test)(sample["Values"])
+                status = classname(test)(sample)
                 return_code = status["return_code"]
 
                 if return_code:

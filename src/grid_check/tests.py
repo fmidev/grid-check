@@ -21,8 +21,8 @@ class EnvelopeTest:
             raise ValueError("At least one of MinAllowed or MaxAllowed must be defined")
 
     def __call__(self, sample):
-        sample_min = np.amin(sample)
-        sample_max = np.amax(sample)
+        sample_min = np.amin(sample["Values"])
+        sample_max = np.amax(sample["Values"])
 
         logging.info(
             f"Executing ENVELOPE test '{self.name}', allowed range: [{self.min} {self.max}]"
@@ -37,7 +37,7 @@ class EnvelopeTest:
 
         return {
             "return_code": retval,
-            "message": f"Min and max [{sample_min:.2f} {sample_max:.2f}], limits [{self.min} {self.max}], sample={sample.size}",
+            "message": f"Min and max [{sample_min:.2f} {sample_max:.2f}], limits [{self.min} {self.max}], sample={sample['Values'].size}",
         }
 
 
@@ -58,7 +58,7 @@ class VarianceTest:
             raise ValueError("At least one of MinAllowed or MaxAllowed must be defined")
 
     def __call__(self, sample):
-        sample_var = np.var(sample)
+        sample_var = np.var(sample["Values"])
 
         logging.info(
             f"Executing VARIANCE test '{self.name}', allowed range: [{self.min} {self.max}]"
@@ -73,7 +73,7 @@ class VarianceTest:
 
         return {
             "return_code": retval,
-            "message": f"Variance value {sample_var:.2f}, limits [{self.min} {self.max}], sample={sample.size}",
+            "message": f"Variance value {sample_var:.2f}, limits [{self.min} {self.max}], sample={sample['Values'].size}",
         }
 
 
@@ -87,7 +87,7 @@ class MeanTest:
             raise ValueError("At least one of MinAllowed or MaxAllowed must be defined")
 
     def __call__(self, sample):
-        sample_mean = np.mean(sample)
+        sample_mean = np.mean(sample["Values"])
 
         logging.info(
             f"Executing MEAN test '{self.name}', allowed range: [{self.min} {self.max}]"
@@ -102,7 +102,7 @@ class MeanTest:
 
         return {
             "return_code": retval,
-            "message": f"Mean value {sample_mean:.2f}, limits [{self.min} {self.max}], sample={sample.size}",
+            "message": f"Mean value {sample_mean:.2f}, limits [{self.min} {self.max}], sample={sample['Values'].size}",
         }
 
 
@@ -116,16 +116,16 @@ class MissingTest:
             raise ValueError("At least one of MinAllowed or MaxAllowed must be defined")
 
     def __call__(self, sample):
-        missing = np.ma.count_masked(sample)
+        missing = np.ma.count_masked(sample["Values"])
 
         logging.info(
             f"Executing MISSING test '{self.name}', allowed range: [{self.min} {self.max}]"
         )
 
         if "%" in str(self.min):
-            self.min = int(0.01 * sample.size)
+            self.min = int(0.01 * sample["Values"].size)
         if "%" in str(self.max):
-            self.max = int(0.01 * sample.size)
+            self.max = int(0.01 * sample["Values"].size)
 
         retval = True
 
@@ -136,5 +136,5 @@ class MissingTest:
 
         return {
             "return_code": retval,
-            "message": f"Number of missing values {missing:.0f}, limits [{self.min} {self.max}], sample={sample.size}",
+            "message": f"Number of missing values {missing:.0f}, limits [{self.min} {self.max}], sample={sample['Values'].size}",
         }
