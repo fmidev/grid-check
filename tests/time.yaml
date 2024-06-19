@@ -1,0 +1,34 @@
+LeadTimes:
+  - Start: 3h
+    Stop: 3h
+    Step: 1h
+ForecastTypes:
+  - Grib2MetaData:
+    - Key: typeOfProcessedData
+      Value: 3
+    - Key: perturbationNumber
+      Value: 0
+Parameters:
+  - Name: Precipitation
+    Grib2MetaData:
+      - Key: discipline
+        Value: 0
+      - Key: parameterCategory
+        Value: 1
+      - Key: parameterNumber
+        Value: 8
+      - Key: typeOfFirstFixedSurface
+        Value: 103
+      - Key: typeOfStatisticalProcessing
+        Value: 1
+Tests:
+  - Name: check pcp envelope
+    Sample: 40%
+    Parameters: 
+      Names:
+        - Precipitation
+    Test:
+      Type: ENVELOPE
+      MinAllowed: -0.01
+      MaxAllowed: 50
+      Month: 1
