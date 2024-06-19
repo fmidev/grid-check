@@ -11,7 +11,7 @@ import logging
 import copy
 from random import randrange
 from datetime import datetime, timedelta
-
+from tests import *
 import pydash
 
 MISS = -1e19
@@ -285,95 +285,23 @@ def preprocess(grids, test):
         sys.exit(1)
 
 
-def execute_envelope_test(sample, mina, maxa):
-    smin = np.amin(sample)
-    smax = np.amax(sample)
-
-    retval = True
-
-    if smin < mina or smax > maxa:
-        retval = False
-
-    return {
-        "return_code": retval,
-        "message": f"Min and max [{smin:.2f} {smax:.2f}], limits [{mina:.2f} {maxa:.2f}], sample={sample.size}",
-    }
-
-
-def execute_variance_test(sample, mina, maxa):
-    svar = np.var(sample)
-
-    retval = True
-
-    if (mina != None and svar < mina) or (maxa != None and svar > maxa):
-        retval = False
-
-    return {
-        "return_code": retval,
-        "message": f"Variance value {svar:.2f}, limits [{mina} {maxa}], sample={sample.size}",
-    }
-
-
-def execute_mean_test(sample, mina, maxa):
-    smean = np.mean(sample)
-
-    retval = True
-
-    if (mina != None and smean < mina) or (maxa != None and smean > maxa):
-        retval = False
-
-    return {
-        "return_code": retval,
-        "message": f"Mean value {smean:.2f}, limits [{mina} {maxa}], sample={sample.size}",
-    }
-
-
-def execute_missing_test(sample, mina, maxa):
-    missing = np.ma.count_masked(sample)
-
-    if "%" in str(mina):
-        mina = int(0.01 * sample.size)
-    if "%" in str(maxa):
-        maxa = int(0.01 * sample.size)
-
-    retval = True
-
-    if (mina != None and missing < mina) or (maxa != None and missing > maxa):
-        retval = False
-
-    return {
-        "return_code": retval,
-        "message": f"Number of missing values {missing:.0f}, limits [{mina} {maxa}], sample={sample.size}",
-    }
-
-
 def execute_test(test, forecast_types, leadtimes, parameters, files):
     ty = test["Test"]["Type"]
 
     remove_missing = True
-    func = None
+    classname = None
+
     if ty == "ENVELOPE":
-        func = execute_envelope_test
+        classname = EnvelopeTest
     elif ty == "VARIANCE":
-        func = execute_variance_test
+        classname = VarianceTest
     elif ty == "MEAN":
-        func = execute_mean_test
+        classname = MeanTest
     elif ty == "MISSING":
         remove_missing = False
-        func = execute_missing_test
+        classname = MissingTest
     else:
         raise TestNotImplementedException("Unsupported test: %s" % test["Test"])
-
-    mina = test["Test"].get("MinAllowed", None)
-    maxa = test["Test"].get("MaxAllowed", None)
-
-    if mina is None and maxa is None and ty == "VARIANCE":
-        mina = test["Test"].get("MinVariance", None)
-        maxa = test["Test"].get("MaxVariance", None)
-
-    logging.info(
-        f"Executing {ty} test '{test['Name']}', allowed range: [{mina}, {maxa}]"
-    )
 
     ret = {"success": 0, "fail": 0, "skip": 0, "summary": []}
 
@@ -393,18 +321,13 @@ def execute_test(test, forecast_types, leadtimes, parameters, files):
                 continue
 
             for sample in samples:
-                if (
-                    mina is None
-                    and maxa is None
-                    or sample is None
-                    or sample["Values"] is None
-                ):
+                if sample is None or sample["Values"] is None:
                     ret["skip"] += 1
 
                     continue
 
                 parameter = sample["Parameter"]
-                status = func(sample["Values"], mina, maxa)
+                status = classname(test)(sample["Values"])
                 return_code = status["return_code"]
 
                 if return_code:
