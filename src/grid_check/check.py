@@ -165,7 +165,9 @@ def read_sample(grids, sample_size, remove_missing=True):
 
     ret = []
 
-    func = sample_without_missing_values if remove_missing else sample_with_missing_values
+    func = (
+        sample_without_missing_values if remove_missing else sample_with_missing_values
+    )
 
     for g in grids:
         g["Values"] = func(g["Values"])
@@ -262,10 +264,10 @@ def read_grids(index, parameters):
 
 
 def preprocess(grids, test):
-    '''
+    """
     Preprocess grids before running the test.
     Only if Preprocess key is defined in the test configuration.
-    '''
+    """
 
     if len(grids) == 0:
         return None
@@ -289,7 +291,11 @@ def preprocess(grids, test):
         name = prep.get("Rename", None)
         name = name if name is not None else str(prep)
 
-        return [{"Parameter": name, "Values": processed}]
+        # TODO: accessing only first grid
+        grids[0]["Parameter"] = name
+        grids[0]["Values"] = processed
+
+        return grids
 
     except NameError as e:
         raise Exception("Invalid preprocessing function: {prep}: {e}")
@@ -342,9 +348,9 @@ def execute_test(test, forecast_types, leadtimes, parameters, files):
                 status = classname(test)(sample)
                 return_code = status["return_code"]
 
-                if return_code:
+                if return_code == 0:
                     ret["success"] += 1
-                else:
+                elif return_code == 1:
                     ret["fail"] += 1
 
                 message = ""
@@ -357,9 +363,7 @@ def execute_test(test, forecast_types, leadtimes, parameters, files):
 
                 message += f"Leadtime {lt} Parameter {parameter} {status['message']}"
 
-                ret["summary"].append(
-                    {"return_value": not int(return_code), "message": message}
-                )
+                ret["summary"].append({"return_value": return_code, "message": message})
 
     return ret
 
@@ -481,13 +485,19 @@ def check(config, dims, files, strict=False):
             logging.info("No grids checked")
 
         for summary in summaries["summary"]:
-            retval = int(summary["return_value"])
+            retval = summary["return_value"]
             if retval > return_code:
                 return_code = retval
 
             if retval == 0:
+                # test was successful
                 logging.info(summary["message"])
-            else:
+            elif retval == -1:
+                # test was skipped with ok status, for example month didn't match
+                # log with debug level as it was not a failure and produces a lot of output
+                logging.debug(summary["message"])
+            elif retval == 1:
+                # test failed
                 logging.error(summary["message"])
                 combined_errors.append(
                     {"name": test["Name"], "message": summary["message"]}

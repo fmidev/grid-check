@@ -26,6 +26,7 @@ Test:
   Type: ENVELOPE
   MinAllowed: -0.01
   MaxAllowed: 50
+  Month: 5 # Optional: only execute for forecast times in May
 ```
 
 ## Variance test

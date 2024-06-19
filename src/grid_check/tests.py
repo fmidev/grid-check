@@ -15,8 +15,8 @@ class EnvelopeTest:
     def __init__(self, config):
         self.min = config["Test"].get("MinAllowed", None)
         self.max = config["Test"].get("MaxAllowed", None)
-        self.name = config["Test"].get("Name", "EnvelopeTest")
-
+        self.name = config.get("Name", "EnvelopeTest")
+        self.month = config["Test"].get("Month", None)
         if self.min is None and self.max is None:
             raise ValueError("At least one of MinAllowed or MaxAllowed must be defined")
 
@@ -24,21 +24,25 @@ class EnvelopeTest:
         sample_min = np.amin(sample["Values"])
         sample_max = np.amax(sample["Values"])
 
+        retval = 0  # OK
+
+        message = f"Min and max [{sample_min:.2f} {sample_max:.2f}], limits [{self.min} {self.max}], sample={sample['Values'].size}"
+
+        if self.month is not None and sample["ForecastTime"].month != self.month:
+            retval = -1  # DISABLED
+            message = f"Test skipped due to month mismatch (expected: {self.month}, got: {sample['ForecastTime'].month})"
+            return {"return_code": retval, "message": message}
+
         logging.info(
             f"Executing ENVELOPE test '{self.name}', allowed range: [{self.min} {self.max}]"
         )
 
-        retval = True
-
         if (self.min is not None and sample_min < self.min) or (
             self.max is not None and sample_max > self.max
         ):
-            retval = False
+            retval = 1  # FAILED
 
-        return {
-            "return_code": retval,
-            "message": f"Min and max [{sample_min:.2f} {sample_max:.2f}], limits [{self.min} {self.max}], sample={sample['Values'].size}",
-        }
+        return {"return_code": retval, "message": message}
 
 
 class VarianceTest:
@@ -52,7 +56,7 @@ class VarianceTest:
             self.min = config["Test"].get("MinVariance", None)
             self.max = config["Test"].get("MaxVariance", None)
 
-        self.name = config["Test"].get("Name", "EnvelopeTest")
+        self.name = config.get("Name", "EnvelopeTest")
 
         if self.min is None and self.max is None:
             raise ValueError("At least one of MinAllowed or MaxAllowed must be defined")
@@ -64,12 +68,12 @@ class VarianceTest:
             f"Executing VARIANCE test '{self.name}', allowed range: [{self.min} {self.max}]"
         )
 
-        retval = True
+        retval = 0  # OK
 
         if (self.min is not None and sample_var < self.min) or (
             self.max is not None and sample_var > self.max
         ):
-            retval = False
+            retval = 1  # FAILED
 
         return {
             "return_code": retval,
@@ -81,7 +85,7 @@ class MeanTest:
     def __init__(self, config):
         self.min = config["Test"].get("MinAllowed", None)
         self.max = config["Test"].get("MaxAllowed", None)
-        self.name = config["Test"].get("Name", "MeanTest")
+        self.name = config.get("Name", "MeanTest")
 
         if self.min is None and self.max is None:
             raise ValueError("At least one of MinAllowed or MaxAllowed must be defined")
@@ -93,12 +97,12 @@ class MeanTest:
             f"Executing MEAN test '{self.name}', allowed range: [{self.min} {self.max}]"
         )
 
-        retval = True
+        retval = 0  # OK
 
         if (self.min is not None and sample_mean < self.min) or (
             self.max is not None and sample_mean > self.max
         ):
-            retval = False
+            retval = 1  # FAILED
 
         return {
             "return_code": retval,
@@ -110,7 +114,7 @@ class MissingTest:
     def __init__(self, config):
         self.min = config["Test"].get("MinAllowed", None)
         self.max = config["Test"].get("MaxAllowed", None)
-        self.name = config["Test"].get("Name", "MissingTest")
+        self.name = config.get("Name", "MissingTest")
 
         if self.min is None and self.max is None:
             raise ValueError("At least one of MinAllowed or MaxAllowed must be defined")
@@ -127,12 +131,12 @@ class MissingTest:
         if "%" in str(self.max):
             self.max = int(0.01 * sample["Values"].size)
 
-        retval = True
+        retval = 0  # OK
 
         if (self.min is not None and missing < self.min) or (
             self.max is not None and missing > self.max
         ):
-            retval = False
+            retval = 1  # FAILED
 
         return {
             "return_code": retval,
