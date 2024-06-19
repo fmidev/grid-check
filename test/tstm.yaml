@@ -27,3 +27,11 @@ Tests:
       Type: MEAN
       MinAllowed: 0
       MaxAllowed: 70
+  - Name: tstm variance
+    Sample: 10%
+    Parameters:
+      Names:
+        - POT
+    Test:
+      Type: VARIANCE
+      MaxAllowed: 10
