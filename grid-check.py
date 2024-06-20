@@ -2,7 +2,8 @@
 
 import sys
 import argparse
-from grid_check import parse_configuration_file, check
+import logging
+from grid_check import parse_configuration_file, check, index_grib_files
 
 def parse_command_line():
     parser = argparse.ArgumentParser()

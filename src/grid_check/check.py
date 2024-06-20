@@ -1,33 +1,17 @@
-import eccodes as ecc
-import gribapi
 import yaml
 import numpy as np
 import logging
 import copy
 from random import randrange
-from datetime import datetime, timedelta
+from datetime import timedelta
 from .tests import *
+from .fileutils import read_grids
+from .constants import *
 import pydash
-
-MISS = -1e19
 
 
 class TestNotImplementedException(Exception):
     pass
-
-
-def get_index_keys():
-    return [
-        "typeOfProcessedData",
-        "typeOfFirstFixedSurface",
-        "level",
-        "discipline",
-        "parameterCategory",
-        "parameterNumber",
-        "typeOfStatisticalProcessing",
-        "endStep",
-        "perturbationNumber",
-    ]
 
 
 def get_default_value(keyname):
@@ -52,70 +36,6 @@ def forecast_type_from_grib(gid):
         return "perturbation/%d" % ecc.codes_get(gid, "perturbationNumber")
     else:
         return "unknown"
-
-
-def index_grib_files(grib_files):
-    logging.info("Indexing grib files")
-    index = {}
-
-    index_keys = get_index_keys()
-    cnt = 0
-    for grib_file in grib_files[0]:
-        with open(grib_file) as fp:
-            message_no = 0
-            offset = 0
-            while True:
-                gid = ecc.codes_grib_new_from_file(fp)
-                if gid is None:
-                    break
-
-                ref = index
-                for k in index_keys:
-                    try:
-                        val = ecc.codes_get_long(gid, k)
-                    except gribapi.errors.KeyValueNotFoundError as e:
-                        val = None
-
-                    if val not in ref:
-                        ref[val] = {}
-                        ref = ref[val]
-                    else:
-                        ref = ref[val]
-
-                length = ecc.codes_get_long(gid, "totalLength")
-
-                ref["file_name"] = grib_file
-                ref["message_no"] = message_no
-                ref["length"] = length
-                ref["offset"] = offset
-
-                message_no += 1
-                offset += length
-                cnt += 1
-
-    logging.info(f"Indexed {cnt} messages from {len(grib_files[0])} file(s)")
-
-    return index
-
-
-def read_grib_message(index, conditions):
-    index_keys = get_index_keys()
-    leaf = index
-    for ikey in index_keys:
-        found = False
-        for item in conditions:
-            if item["Key"] == ikey:
-                try:
-                    leaf = leaf[item["Value"]]
-                except KeyError as e:
-                    return None
-                found = True
-                break
-        if not found:
-            logging.debug("Data not found from index")
-            return None
-
-    return leaf
 
 
 def read_sample(grids, sample_size, remove_missing=True):
@@ -209,58 +129,6 @@ def format_metadata_to_string(metadata):
         string += "%s=%s " % (m["Key"], m["Value"])
 
     return string
-
-
-def read_data(grid):
-    """
-    Read data values from grib file given the offset and length from index.
-    Also provide some additional metadata that is not stored in the index.
-    """
-    with open(grid["file_name"], "rb") as fp:
-        fp.seek(grid["offset"], 0)
-        buff = fp.read(grid["length"])
-        fp.close()
-
-    gid = ecc.codes_new_from_message(buff)
-    ecc.codes_set(gid, "missingValue", MISS)
-
-    ret = {}
-    values = np.array(ecc.codes_get_values(gid))
-    ret["Values"] = np.ma.masked_where(values == MISS, values)
-
-    dd = ecc.codes_get_long(gid, "dataDate")
-    dt = ecc.codes_get_long(gid, "dataTime")
-    es = ecc.codes_get_long(gid, "endStep")
-
-    ret["AnalysisTime"] = datetime.strptime(f"{dd}{dt:04d}", "%Y%m%d%H%M")
-    ret["ForecastTime"] = ret["AnalysisTime"] + timedelta(hours=es)
-
-    ecc.codes_release(gid)
-
-    return ret
-
-
-def read_grids(index, parameters):
-    grids = {}
-    for param in parameters:
-        grid = read_grib_message(index, parameters[param]["Grib2MetaData"])
-
-        if grid is not None:
-            logging.debug(
-                f"Read {format_metadata_to_string(parameters[param]['Grib2MetaData'])}"
-            )
-            grids[param] = read_data(grid)
-
-    diff = list(set(parameters) - set(grids.keys()))
-
-    if len(diff) > 0:
-        for param in diff:
-            logging.warning(
-                f"Unable to find data for '{param}': {format_metadata_to_string(parameters[param]['Grib2MetaData'])}"
-            )
-        return {}
-
-    return grids
 
 
 def preprocess(grids, test):
@@ -439,7 +307,7 @@ def tie(req_parameters, parameters):
     except KeyError as e:
         pass
 
-    index_keys = get_index_keys()
+    index_keys = INDEX_KEYS
 
     # must have value for all index keys
 
