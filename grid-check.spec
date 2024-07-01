@@ -14,7 +14,6 @@
 %define python python
 %endif
 
-
 Name:           grid-check
 Version:        %{version}
 Release:        %{release}%{dist}.fmi
@@ -25,15 +24,17 @@ URL:            http://www.fmi.fi
 Source0: 	%{name}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:	redhat-rpm-config
-Requires:	${python}
-Requires:	${python}-numpy
-Requires:	${python}-pyyaml
+BuildRequires:	%{python}
+Requires:	%{python}
+Requires:	%{python}-numpy
+Requires:	%{python}-pyyaml
 
 Provides:	grid-check.py
 
 AutoReqProv: no
 
 %global debug_package %{nil}
+%global __brp_mangle_shebangs %{nil}
 
 %description
 grid-check tool does basic data quality checks to gridded fields (grib)
@@ -45,15 +46,21 @@ grid-check tool does basic data quality checks to gridded fields (grib)
 
 %install
 rm -rf $RPM_BUILD_ROOT
-mkdir -p %{buildroot}/%{_bindir}
-cp -a grid-check.py %{buildroot}/%{_bindir}/grid-check.py
+mkdir -p %{buildroot}/%{_bindir} %{buildroot}/%{_libdir}/python3.9/site-packages/grid-check
+cp -va grid-check.py %{buildroot}/%{_bindir}/grid-check.py
+cp -var src/* %{buildroot}/%{_libdir}/python3.9/site-packages/
 
 %clean
 rm -rf %{buildroot}
 
+%post
+echo 'Some python libraries need to be installed manually with pip.' > /dev/stderr
+echo 'Run python3.9 -m pip install eccodes pydash fsspec s3fs' > /dev/stderr
+
 %files
 %defattr(-,root,root,0755)
 %{_bindir}/grid-check.py
+%{_libdir}/python3.9/site-packages/grid_check/
 
 %changelog
 * Tue May 31 2022 Mikko Partio <mikko.partio@fmi.fi> - 22.5.31-1.fmi
