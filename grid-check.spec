@@ -8,6 +8,13 @@
 
 %define distnum %(/usr/lib/rpm/redhat/dist.sh --distnum)
 
+%if %{distnum} == 8
+%define python python39
+%else
+%define python python
+%endif
+
+
 Name:           grid-check
 Version:        %{version}
 Release:        %{release}%{dist}.fmi
@@ -17,9 +24,10 @@ License:        MIT
 URL:            http://www.fmi.fi
 Source0: 	%{name}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-Requires:       python3
-Requires:	python3-numpy
-Requires:	python3-pyyaml
+BuildRequires:	redhat-rpm-config
+Requires:	${python}
+Requires:	${python}-numpy
+Requires:	${python}-pyyaml
 
 Provides:	grid-check.py
 
