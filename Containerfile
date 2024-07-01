@@ -13,6 +13,7 @@ RUN git clone https://github.com/fmidev/grid-check.git
 WORKDIR /grid-check
 
 ENV PATH /grid-check:$PATH
+ENV PYTHONPATH /grid-check/src:$PYTHONPATH
 
 RUN python3 -m pip --no-cache-dir install -r requirements.txt && \
     python3 -m pip --no-cache-dir install s3cmd
