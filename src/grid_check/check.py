@@ -464,17 +464,30 @@ def apply_patch_to_configuration(config, patches):
 
 
 def parse_configuration_file(configuration_file, patch):
+    def include_constructor(loader, node):
+        # Get the path of the included file
+        included_file_path = loader.construct_scalar(node)
+
+        # Load the included file
+        with open(included_file_path, "r") as included_file:
+            included_content = yaml.load(included_file, Loader=yaml.FullLoader)
+
+        return included_content
+
     config = None
     with open(configuration_file, "r") as fp:
         try:
-            config = yaml.safe_load(fp)
+            yaml.add_constructor(
+                "!include", include_constructor, Loader=yaml.FullLoader
+            )
+            config = yaml.load(fp, Loader=yaml.FullLoader)
         except yaml.YAMLError as exc:
             raise Exception(exc)
 
     if patch is not None:
         config = apply_patch_to_configuration(config, patch)
 
-    logging.debug(yaml.dump(config, default_flow_style=False))
+    logging.info(yaml.dump(config, default_flow_style=False))
     return (
         config,
         parse_forecast_types(config),

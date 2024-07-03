@@ -1,0 +1,9 @@
+- Name: check tstm grid mean
+  Sample: 40%
+  Parameters: 
+    Names:
+      - POT
+  Test:
+    Type: MEAN
+    MinAllowed: 0
+    MaxAllowed: 70

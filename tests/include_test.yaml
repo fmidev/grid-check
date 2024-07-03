@@ -1,0 +1,11 @@
+LeadTimes:
+  - Start: 0h
+    Stop: 0h
+    Step: 1h
+ForecastTypes:
+  - Grib2MetaData:
+    - Key: typeOfProcessedData
+      Value: 2
+Parameters: 
+- !include include_tstm_param.yaml
+Tests: !include include_tstm_test.yaml

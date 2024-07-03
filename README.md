@@ -234,6 +234,19 @@ Multiple -p options can be specified. To remove a key, set the value to "None". 
 
 Anykind of filtering is not possible to do; for more complex options it is recommended to use a yaml filtering program like `yq` to pre-process the configuration file.
 
+# Include files
+
+To break up large configurations into manageable chunks, it is possible to include other yaml files into the main configuration file.
+
+Yaml tag !include is used for this purpose.
+
+```
+Tests:
+  - !include test1.yaml
+  - !include test2.yaml
+```
+
+See tests/include_test.yaml for an example.
 
 # Example
 

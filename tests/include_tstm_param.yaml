@@ -1,0 +1,10 @@
+Name: POT
+Grib2MetaData:
+- Key: discipline
+  Value: 0
+- Key: parameterCategory
+  Value: 19
+- Key: parameterNumber
+  Value: 2
+- Key: typeOfFirstFixedSurface
+  Value: 103

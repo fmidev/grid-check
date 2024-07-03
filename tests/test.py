@@ -113,3 +113,19 @@ def test_month():
 
     assert check(config, dims, index_grib_files(files)) == 1
 
+
+def test_include():
+    configfile = "include_test.yaml"
+    files = [["tstm.grib2"]]
+
+    config, forecast_types, leadtimes, parameters = parse_configuration_file(
+        configfile, None
+    )
+
+    dims = {
+        "forecast_types": forecast_types,
+        "leadtimes": leadtimes,
+        "parameters": parameters,
+    }
+
+    assert check(config, dims, index_grib_files(files)) == 1
