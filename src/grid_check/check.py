@@ -469,17 +469,32 @@ def parse_configuration_file(configuration_file, patch):
         # Get the path of the included file
         included_file_path = loader.construct_scalar(node)
 
-        if not os.path.exists(included_file_path):
-            current_path = os.path.dirname(os.path.abspath(__file__))
-            new_included_file_path = os.path.join(
-                current_path, "include", os.path.basename(included_file_path)
+        possible_paths = [
+            included_file_path,
+            os.path.join(os.path.dirname(configuration_file), included_file_path),
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "include",
+                os.path.basename(included_file_path),
+            ),
+        ]
+
+        new_included_file_path = None
+        for included_file_path in possible_paths:
+            if not os.path.exists(included_file_path):
+                continue
+
+            logging.debug(f"Found included file: {included_file_path}")
+            new_included_file_path = included_file_path
+
+            break
+
+        if new_included_file_path is None:
+            raise FileNotFoundError(
+                "Included file {} not found".format(loader.construct_scalar(node))
             )
 
-            if not os.path.exists(new_included_file_path):
-                raise FileNotFoundError(
-                    "Included file {} not found".format(included_file_path)
-                )
-            included_file_path = new_included_file_path
+        included_file_path = new_included_file_path
 
         # Load the included file
         with open(included_file_path, "r") as included_file:
