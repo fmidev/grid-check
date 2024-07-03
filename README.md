@@ -261,6 +261,34 @@ Parameters:
 
 If a local file with the same name exists, it will be used instead of the predefined one.
 
+A list can be included into another list directly: grid-check will remove the outer list definition.
+
+For example:
+
+inc.yaml
+
+```yaml
+- a
+- b
+```
+
+main.yaml
+
+```yaml
+mylist:
+- !include inc.yml
+- c
+```
+
+Will result to:
+
+```yaml
+mylist:
+- a
+- b
+- c
+```
+
 # Example
 
 ```

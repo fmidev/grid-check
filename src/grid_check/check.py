@@ -485,7 +485,22 @@ def parse_configuration_file(configuration_file, patch):
         with open(included_file_path, "r") as included_file:
             included_content = yaml.load(included_file, Loader=yaml.FullLoader)
 
-        return included_content
+        # If included content is a list, return its elements individually
+        if isinstance(included_content, list):
+            return included_content
+
+        return [included_content]
+
+    def construct_sequence_flatten(loader, node):
+        """Construct a list while flattening any included lists."""
+        value = loader.construct_sequence(node)
+        flattened = []
+        for item in value:
+            if isinstance(item, list):
+                flattened.extend(item)
+            else:
+                flattened.append(item)
+        return flattened
 
     config = None
     with open(configuration_file, "r") as fp:
@@ -493,6 +508,12 @@ def parse_configuration_file(configuration_file, patch):
             yaml.add_constructor(
                 "!include", include_constructor, Loader=yaml.FullLoader
             )
+            yaml.add_constructor(
+                yaml.resolver.BaseResolver.DEFAULT_SEQUENCE_TAG,
+                construct_sequence_flatten,
+                Loader=yaml.FullLoader,
+            )
+
             config = yaml.load(fp, Loader=yaml.FullLoader)
         except yaml.YAMLError as exc:
             raise Exception(exc)
