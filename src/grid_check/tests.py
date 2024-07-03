@@ -33,7 +33,7 @@ class EnvelopeTest:
             message = f"Test skipped due to month mismatch (expected: {self.month}, got: {sample['ForecastTime'].month})"
             return {"return_code": retval, "message": message}
 
-        logging.info(
+        logging.debug(
             f"Executing ENVELOPE test '{self.name}', allowed range: [{self.min} {self.max}]"
         )
 
@@ -64,7 +64,7 @@ class VarianceTest:
     def __call__(self, sample):
         sample_var = np.var(sample["Values"])
 
-        logging.info(
+        logging.debug(
             f"Executing VARIANCE test '{self.name}', allowed range: [{self.min} {self.max}]"
         )
 
@@ -93,7 +93,7 @@ class MeanTest:
     def __call__(self, sample):
         sample_mean = np.mean(sample["Values"])
 
-        logging.info(
+        logging.debug(
             f"Executing MEAN test '{self.name}', allowed range: [{self.min} {self.max}]"
         )
 
@@ -122,7 +122,7 @@ class MissingTest:
     def __call__(self, sample):
         missing = np.ma.count_masked(sample["Values"])
 
-        logging.info(
+        logging.debug(
             f"Executing MISSING test '{self.name}', allowed range: [{self.min} {self.max}]"
         )
 
