@@ -2,6 +2,7 @@ import yaml
 import numpy as np
 import logging
 import copy
+import os
 from random import randrange
 from datetime import timedelta
 from .tests import *
@@ -467,6 +468,18 @@ def parse_configuration_file(configuration_file, patch):
     def include_constructor(loader, node):
         # Get the path of the included file
         included_file_path = loader.construct_scalar(node)
+
+        if not os.path.exists(included_file_path):
+            current_path = os.path.dirname(os.path.abspath(__file__))
+            new_included_file_path = os.path.join(
+                current_path, "include", os.path.basename(included_file_path)
+            )
+
+            if not os.path.exists(new_included_file_path):
+                raise FileNotFoundError(
+                    "Included file {} not found".format(included_file_path)
+                )
+            included_file_path = new_included_file_path
 
         # Load the included file
         with open(included_file_path, "r") as included_file:

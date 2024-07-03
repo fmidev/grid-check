@@ -1,0 +1,12 @@
+Name: Temperature
+Grib2MetaData:
+- Key: discipline
+  Value: 0
+- Key: parameterCategory
+  Value: 0
+- Key: parameterNumber
+  Value: 0
+- Key: typeOfFirstFixedSurface
+  Value: 103
+- Key: level
+  Value: 2

@@ -248,6 +248,19 @@ Tests:
 
 See tests/include_test.yaml for an example.
 
+# Predefined include files
+
+Some common include files are provided in the include directory. These can be used as is, or as a starting point for further customization.
+They can be included simply by specifying the filename in the configuration file.
+
+```
+Parameters:
+  - !include Temperature.yaml
+  - !include Precipitation1h.yaml
+```
+
+If a local file with the same name exists, it will be used instead of the predefined one.
+
 # Example
 
 ```

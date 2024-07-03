@@ -7,5 +7,5 @@ ForecastTypes:
     - Key: typeOfProcessedData
       Value: 2
 Parameters: 
-- !include include_tstm_param.yaml
+- !include ProbabilityOfThunderstorm.yaml
 Tests: !include include_tstm_test.yaml

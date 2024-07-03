@@ -1,0 +1,12 @@
+Name: CloudCover
+Grib2MetaData:
+- Key: discipline
+  Value: 0
+- Key: parameterCategory
+  Value: 6
+- Key: parameterNumber
+  Value: 192
+- Key: typeOfFirstFixedSurface
+  Value: 103
+- Key: level
+  Value: 0

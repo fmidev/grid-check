@@ -1,0 +1,12 @@
+Name: Humidity
+Grib2MetaData:
+- Key: discipline
+  Value: 0
+- Key: parameterCategory
+  Value: 1
+- Key: parameterNumber
+  Value: 1
+- Key: typeOfFirstFixedSurface
+  Value: 103
+- Key: level
+  Value: 2

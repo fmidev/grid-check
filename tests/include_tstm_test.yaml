@@ -2,7 +2,7 @@
   Sample: 40%
   Parameters: 
     Names:
-      - POT
+      - ProbabilityOfThunderstorm
   Test:
     Type: MEAN
     MinAllowed: 0

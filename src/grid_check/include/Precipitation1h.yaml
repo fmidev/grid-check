@@ -1,0 +1,14 @@
+Name: Precipitation1h
+Grib2MetaData:
+- Key: discipline
+  Value: 0
+- Key: parameterCategory
+  Value: 1
+- Key: parameterNumber
+  Value: 52
+- Key: typeOfFirstFixedSurface
+  Value: 103
+- Key: level
+  Value: 0
+- Key: typeOfStatisticalProcessing
+  Value: 1
