@@ -1,0 +1,12 @@
+Name: WindDirection
+Grib2MetaData:
+- Key: discipline
+  Value: 0
+- Key: parameterCategory
+  Value: 2
+- Key: parameterNumber
+  Value: 0
+- Key: typeOfFirstFixedSurface
+  Value: 103
+- Key: level
+  Value: 10
