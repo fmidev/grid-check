@@ -170,7 +170,7 @@ def preprocess(grids, test):
         raise Exception("Invalid preprocessing function: {prep}: {e}")
 
 
-def execute_test(test, forecast_types, leadtimes, parameters, files):
+def execute_single_test(test, forecast_types, leadtimes, parameters, files):
     ty = test["Test"]["Type"]
 
     remove_missing = True
@@ -188,7 +188,7 @@ def execute_test(test, forecast_types, leadtimes, parameters, files):
     elif ty == "INTEGER":
         classname = IntegerTest
     else:
-        raise TestNotImplementedException("Unsupported test: %s" % test["Test"])
+        raise TestNotImplementedException("Unsupported test: {}".format(test["Test"]))
 
     ret = {"success": 0, "fail": 0, "skip": 0, "summary": []}
 
@@ -234,9 +234,36 @@ def execute_test(test, forecast_types, leadtimes, parameters, files):
 
                 message += f"Leadtime {lt} Parameter {parameter} {status['message']}"
 
-                ret["summary"].append({"return_value": return_code, "message": message})
+                ret["summary"].append(
+                    {
+                        "name": status["name"],
+                        "return_value": return_code,
+                        "message": message,
+                    }
+                )
 
     return ret
+
+
+def execute_test(test, forecast_types, leadtimes, parameters, files):
+    if type(test["Test"]) is dict:
+        # single test
+        return [execute_single_test(test, forecast_types, leadtimes, parameters, files)]
+
+    results = []
+    for t in test["Test"]:
+        # Since the actual test needs other information also than just the test
+        # parameters, like sample size, we need to make a copy of test and inject
+        # the test parameters. This is needed because starting from 20240809 the
+        # Test-element can be a list of tests. So what we do here is that we
+        # override the list with the actual test we are running.
+        fake_test = copy.deepcopy(test)
+        fake_test["Test"] = t
+        results.append(
+            execute_single_test(fake_test, forecast_types, leadtimes, parameters, files)
+        )
+
+    return results
 
 
 def inject(conditions, injected):
@@ -332,34 +359,23 @@ def tie(req_parameters, parameters):
 
 
 def check(config, dims, files, strict=False):
-    success = 0
-    fail = 0
-    skip = 0
+    all_success = 0
+    all_fail = 0
+    all_skip = 0
 
     return_code = 0
     combined_errors = []
 
-    for test in config["Tests"]:
-        summaries = execute_test(
-            test,
-            dims["forecast_types"],
-            dims["leadtimes"],
-            tie(test["Parameters"], dims["parameters"]),
-            files,
-        )
-
-        success += summaries["success"]
-        fail += summaries["fail"]
-        skip += summaries["skip"]
+    def handle_result(summaries):
+        success = summaries["success"]
+        fail = summaries["fail"]
+        skip = summaries["skip"]
 
         if len(summaries["summary"]) == 0:
             logging.info("No grids checked")
 
         for summary in summaries["summary"]:
             retval = summary["return_value"]
-            if retval > return_code:
-                return_code = retval
-
             if retval == 0:
                 # test was successful
                 logging.info(summary["message"])
@@ -371,11 +387,31 @@ def check(config, dims, files, strict=False):
                 # test failed
                 logging.error(summary["message"])
                 combined_errors.append(
-                    {"name": test["Name"], "message": summary["message"]}
+                    {"name": summary["name"], "message": summary["message"]}
                 )
 
+        return success, fail, skip, retval
+
+    for test in config["Tests"]:
+        all_summaries = execute_test(
+            test,
+            dims["forecast_types"],
+            dims["leadtimes"],
+            tie(test["Parameters"], dims["parameters"]),
+            files,
+        )
+
+        for summaries in all_summaries:
+            success, fail, skip, retval = handle_result(summaries)
+            all_success += success
+            all_fail += fail
+            all_skip += skip
+
+            if retval > return_code:
+                return_code = retval
+
     logging.info(
-        f"Total Summary: successful tests: {success}, failed: {fail}, skipped: {skip}"
+        f"Total Summary: successful tests: {all_success}, failed: {all_fail}, skipped: {all_skip}"
     )
 
     if len(combined_errors) > 0:
@@ -383,7 +419,7 @@ def check(config, dims, files, strict=False):
         for err in combined_errors:
             logging.error("'{}': {}".format(err["name"], err["message"]))
 
-    if strict and (fail > 0 or skip > 0):
+    if strict and (all_fail > 0 or all_skip > 0):
         return_code = 1
 
     return return_code

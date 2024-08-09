@@ -31,7 +31,7 @@ class EnvelopeTest:
         if self.month is not None and sample["ForecastTime"].month != self.month:
             retval = -1  # DISABLED
             message = f"Test skipped due to month mismatch (expected: {self.month}, got: {sample['ForecastTime'].month})"
-            return {"return_code": retval, "message": message}
+            return {"name": self.name, "return_code": retval, "message": message}
 
         logging.debug(
             f"Executing ENVELOPE test '{self.name}', allowed range: [{self.min} {self.max}]"
@@ -42,7 +42,7 @@ class EnvelopeTest:
         ):
             retval = 1  # FAILED
 
-        return {"return_code": retval, "message": message}
+        return {"name": self.name, "return_code": retval, "message": message}
 
 
 class VarianceTest:
@@ -76,6 +76,7 @@ class VarianceTest:
             retval = 1  # FAILED
 
         return {
+            "name": self.name,
             "return_code": retval,
             "message": f"Variance value {sample_var:.2f}, limits [{self.min} {self.max}], sample={sample['Values'].size}",
         }
@@ -105,6 +106,7 @@ class MeanTest:
             retval = 1  # FAILED
 
         return {
+            "name": self.name,
             "return_code": retval,
             "message": f"Mean value {sample_mean:.2f}, limits [{self.min} {self.max}], sample={sample['Values'].size}",
         }
@@ -139,6 +141,7 @@ class MissingTest:
             retval = 1  # FAILED
 
         return {
+            "name": self.name,
             "return_code": retval,
             "message": f"Number of missing values {missing:.0f}, limits [{self.min} {self.max}], sample={sample['Values'].size}",
         }
@@ -162,6 +165,7 @@ class IntegerTest:
             retval = 1  # FAILED
 
         return {
+            "name": self.name,
             "return_code": retval,
             "message": f"Data {'contained' if retval == 0 else 'did not contain'} all integers, sample={arr.size}",
         }

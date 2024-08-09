@@ -215,8 +215,29 @@ Fourth test tests that 6h precipitation accumulation values lie between -0.01 an
 _slightly_ lower than zero, for example -0. Preprocessing is a simple deduction of current precipitation and one recored 6h earlier. The latter is defined as 'Precipitation_lagged',
 and it is copying the keys from 'Precipitation' using 'Parent', and it is defining a lag of 6h with 'Lag'.
 
-
 Input files are given as command line arguments.
+
+Tests can also be given as a list:
+
+```
+Tests:
+  - Sample: 10%
+    Parameters:
+      Names:
+      - Temperature
+    Test:
+      - Type: ENVELOPE
+        MinAllowed: 220
+        MaxAllowed: 325
+      - Type: VARIANCE
+        MinAllowed: 50
+      - Preprocess:
+          Function: np.hypot(U, V)
+          Rename: WindSpeed
+        Type: ENVELOPE
+        MinAllowed: 0
+        MaxAllowed: 25
+```
 
 # Inline patching
 
