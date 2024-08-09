@@ -185,6 +185,8 @@ def execute_test(test, forecast_types, leadtimes, parameters, files):
     elif ty == "MISSING":
         remove_missing = False
         classname = MissingTest
+    elif ty == "INTEGER":
+        classname = IntegerTest
     else:
         raise TestNotImplementedException("Unsupported test: %s" % test["Test"])
 

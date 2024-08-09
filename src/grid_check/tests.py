@@ -142,3 +142,26 @@ class MissingTest:
             "return_code": retval,
             "message": f"Number of missing values {missing:.0f}, limits [{self.min} {self.max}], sample={sample['Values'].size}",
         }
+
+
+class IntegerTest:
+    """Test if sample contains only integer numbers"""
+
+    def __init__(self, config):
+        self.name = config.get("Name", "IntegerTest")
+
+    def __call__(self, sample):
+        arr = sample["Values"]
+
+        logging.debug(f"Executing INTEGER test '{self.name}'")
+
+        retval = 0  # OK
+
+        # Check if all elements are integers or can be safely converted to integers without losing information
+        if not np.all(np.mod(arr, 1) == 0):
+            retval = 1  # FAILED
+
+        return {
+            "return_code": retval,
+            "message": f"Data {'contained' if retval == 0 else 'did not contain'} all integers, sample={arr.size}",
+        }
