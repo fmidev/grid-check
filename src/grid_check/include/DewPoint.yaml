@@ -5,7 +5,7 @@ Grib2MetaData:
 - Key: parameterCategory
   Value: 0
 - Key: parameterNumber
-  Value: 1
+  Value: 6
 - Key: typeOfFirstFixedSurface
   Value: 103
 - Key: level

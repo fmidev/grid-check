@@ -373,6 +373,7 @@ def check(config, dims, files, strict=False):
 
         if len(summaries["summary"]) == 0:
             logging.info("No grids checked")
+            retval = 1
 
         for summary in summaries["summary"]:
             retval = summary["return_value"]
