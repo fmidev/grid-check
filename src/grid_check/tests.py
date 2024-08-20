@@ -78,7 +78,7 @@ class VarianceTest:
         return {
             "name": self.name,
             "return_code": retval,
-            "message": f"Variance value {sample_var:.2f}, limits [{self.min} {self.max}], sample={sample['Values'].size}",
+            "message": f"Variance value {sample_var:.2g}, limits [{self.min} {self.max}], sample={sample['Values'].size}",
         }
 
 
@@ -108,7 +108,7 @@ class MeanTest:
         return {
             "name": self.name,
             "return_code": retval,
-            "message": f"Mean value {sample_mean:.2f}, limits [{self.min} {self.max}], sample={sample['Values'].size}",
+            "message": f"Mean value {sample_mean:.2g}, limits [{self.min} {self.max}], sample={sample['Values'].size}",
         }
 
 
