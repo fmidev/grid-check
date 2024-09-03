@@ -55,12 +55,15 @@ def read_sample(grids, sample_size, remove_missing=True):
             logging.warning("All elements of grid are missing")
             return None
 
-        # If majority of grid is missing, don't generate a sample
-        miss_ratio = float(ngrid.size) / g.size
-        if miss_ratio < 0.40:
+        # If grid size after removing missing values is smaller thant requested
+        # sample size, don't generate a sample
+
+        if ngrid.size < sample_size:
+            valid_ratio = float(ngrid.size) / g.size
+
             logging.warning(
                 "{:.1f}% of grid elements are missing, cannot generate a sample".format(
-                    100 * (1 - miss_ratio)
+                    100 * (1 - valid_ratio)
                 ),
             )
 
