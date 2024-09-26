@@ -65,6 +65,15 @@ Test:
   MaxAllowed: 80%
 ```
 
+## Integer test
+
+Checks that the values in the sample are integers. This is useful for checking code table data, such as precipitation type.
+
+```
+Test:
+  Type: INTEGER
+```
+
 # Configuration
 
 Configuration is done through yaml files.
