@@ -221,8 +221,7 @@ Third test tests that the data values lie between 0 and 25. It uses two predefin
 The parameter definition is amended by injecting level value '10'.
 
 Fourth test tests that 6h precipitation accumulation values lie between -0.01 and 50. The lower interval is defined as such since with grib packing method we can get values
-_slightly_ lower than zero, for example -0. Preprocessing is a simple deduction of current precipitation and one recored 6h earlier. The latter is defined as 'Precipitation_lagged',
-and it is copying the keys from 'Precipitation' using 'Parent', and it is defining a lag of 6h with 'Lag'.
+_slightly_ lower than zero, for example -0. Preprocessing is a simple deduction of current precipitation and one recored 6h earlier. The latter is defined as 'Precipitation_lagged', and it is copying the keys from 'Precipitation' using 'Parent', and it is defining a lag of 6h with 'Lag'. After preprocessing is done, the original fields used to derive the data are removed from the sample.
 
 Input files are given as command line arguments.
 

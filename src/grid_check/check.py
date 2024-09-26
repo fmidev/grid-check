@@ -163,11 +163,13 @@ def preprocess(grids, test):
         name = prep.get("Rename", None)
         name = name if name is not None else str(prep)
 
-        # TODO: accessing only first grid
-        grids[0]["Parameter"] = name
-        grids[0]["Values"] = processed
+        # After preprocessing, we have only one grid
+        # The original source parameters are not needed anymore
+        g = grids[0]
+        g["Parameter"] = name
+        g["Values"] = processed
 
-        return grids
+        return [g]
 
     except NameError as e:
         raise Exception("Invalid preprocessing function: {prep}: {e}")
@@ -203,7 +205,7 @@ def execute_single_test(test, forecast_types, leadtimes, parameters, files):
             grids = [{"Parameter": x, **grids[x]} for x in grids.keys()]
 
             samples = read_sample(
-                preprocess(grids, test["Test"]),
+                preprocess(grids, test),
                 test["Sample"],
                 remove_missing=remove_missing,
             )
