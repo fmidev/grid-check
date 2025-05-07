@@ -9,9 +9,9 @@
 %define distnum %(/usr/lib/rpm/redhat/dist.sh --distnum)
 
 %if %{distnum} == 8
-%define python python39
+%define python python3.11
 %else
-%define python python
+%define python python3.11
 %endif
 
 Name:           grid-check
@@ -46,21 +46,21 @@ grid-check tool does basic data quality checks to gridded fields (grib)
 
 %install
 rm -rf $RPM_BUILD_ROOT
-mkdir -p %{buildroot}/%{_bindir} %{buildroot}/%{_libdir}/python3.9/site-packages/grid-check
+mkdir -p %{buildroot}/%{_bindir} %{buildroot}/%{_libdir}/python3.11/site-packages/grid-check
 cp -va grid-check.py %{buildroot}/%{_bindir}/grid-check.py
-cp -var src/* %{buildroot}/%{_libdir}/python3.9/site-packages/
+cp -var src/* %{buildroot}/%{_libdir}/python3.11/site-packages/
 
 %clean
 rm -rf %{buildroot}
 
 %post
 echo 'Some python libraries need to be installed manually with pip.' > /dev/stderr
-echo 'Run python3.9 -m pip install eccodes pydash fsspec s3fs' > /dev/stderr
+echo 'Run python3.11 -m pip install eccodes pydash fsspec s3fs' > /dev/stderr
 
 %files
 %defattr(-,root,root,0755)
 %{_bindir}/grid-check.py
-%{_libdir}/python3.9/site-packages/grid_check/
+%{_libdir}/python3.11/site-packages/grid_check/
 
 %changelog
 * Tue May 31 2022 Mikko Partio <mikko.partio@fmi.fi> - 22.5.31-1.fmi
