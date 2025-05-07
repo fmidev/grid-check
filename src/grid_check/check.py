@@ -237,7 +237,13 @@ def execute_single_test(test, forecast_types, leadtimes, parameters, files):
                             message = f"Forecast type: {format_metadata_to_string(ft['Grib2MetaData'])}"
                         break
 
-                message += f"Leadtime {lt} Parameter {parameter} {status['message']}"
+                message += "{} for {} +{:.0f}h ({}): {}".format(
+                    parameter,
+                    sample["AnalysisTime"],
+                    lt.total_seconds() / 3600,
+                    sample["ForecastTime"],
+                    status["message"],
+                )
 
                 ret["summary"].append(
                     {
