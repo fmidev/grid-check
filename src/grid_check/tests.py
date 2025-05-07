@@ -129,9 +129,9 @@ class MissingTest:
         )
 
         if "%" in str(self.min):
-            self.min = int(int(self.min[:-1]) * 0.01 * sample["Values"].size)
+            self.min = int(float(self.min[:-1]) * 0.01 * sample["Values"].size)
         if "%" in str(self.max):
-            self.max = int(int(self.max[:-1]) * 0.01 * sample["Values"].size)
+            self.max = int(float(self.max[:-1]) * 0.01 * sample["Values"].size)
 
         retval = 0  # OK
 

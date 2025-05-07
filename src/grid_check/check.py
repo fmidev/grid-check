@@ -49,7 +49,7 @@ def read_sample(grids, sample_size, remove_missing=True):
         ngrid = g.compressed()
 
         if "%" in str(sample_size):
-            sample_size = int(int(sample_size[:-1]) * 0.01 * ngrid.size)
+            sample_size = int(float(sample_size[:-1]) * 0.01 * ngrid.size)
 
         if g.size == 0:
             logging.warning("All elements of grid are missing")
