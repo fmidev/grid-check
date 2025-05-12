@@ -55,7 +55,7 @@ def read_sample(grids, sample_size, remove_missing=True):
             logging.warning("All elements of grid are missing")
             return None
 
-        # If grid size after removing missing values is smaller thant requested
+        # If grid size after removing missing values is smaller than requested
         # sample size, don't generate a sample
 
         if ngrid.size < sample_size:
@@ -69,7 +69,11 @@ def read_sample(grids, sample_size, remove_missing=True):
 
             return None
 
-        return np.random.choice(ngrid, sample_size)
+        if sample_size == ngrid.size:
+            # return all values
+            return ngrid
+
+        return np.random.choice(ngrid, sample_size, replace=False)
 
     def sample_with_missing_values(g):
         nonlocal sample_size
@@ -80,7 +84,7 @@ def read_sample(grids, sample_size, remove_missing=True):
         ngrid = g.data
 
         # select a random sample
-        sample = np.random.choice(ngrid, sample_size)
+        sample = np.random.choice(ngrid, sample_size, replace=False)
 
         # apply mask once again
         sample = np.ma.masked_where(sample == MISS, sample)
