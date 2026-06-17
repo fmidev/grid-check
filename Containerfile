@@ -8,7 +8,7 @@ RUN rpm -ivh https://download.fmi.fi/smartmet-open/rhel/9/x86_64/smartmet-open-r
     dnf -y install git eccodes python3.11 python3.11-pip && \
     dnf -y clean all
 
-RUN git clone https://github.com/fmidev/grid-check.git
+ADD . /grid-check
 
 WORKDIR /grid-check
 
