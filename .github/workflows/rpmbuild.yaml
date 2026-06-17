@@ -1,6 +1,8 @@
 on: # yamllint disable-line rule:truthy
   push:
-    branches: ["master"]
+    branches:
+      - master
+      - preop
 
 name: Create RPM Release
 
@@ -13,6 +15,7 @@ jobs:
       rpm_additional_repositories: "epel-release,https://download.fmi.fi/smartmet-open/rhel/9/x86_64/smartmet-open-release-latest-9.noarch.rpm"
       rpm_dnf_commands: "dnf config-manager --setopt='epel.exclude=eccodes*' --save"
       image_name: grid-check
+      image_tag: ${{ github.ref == 'refs/heads/master' && 'latest' || github.ref == 'refs/heads/preop' && 'preop' || 'latest' }}
       image_test_command: grid-check.py --help
     secrets:
       RPM_API_HOST: ${{ secrets.RPM_API_HOST }}
